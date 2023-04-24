@@ -47,24 +47,3 @@ class SampleSets:
                 rad = _rad
         
         return Ball(center, rad)
-    
-    # def _find_sorted_index_closest_point_to_center(self, y:np.ndarray) -> list:
-        
-    #     yave = self._average_point(y)
-        
-    #     dyn_list = []
-    #     for i in range(y.shape[1]):
-    #         dy = y[:, i] - yave
-    #         dyn = np.linalg.norm(dy)
-    #         dyn_list.append(dyn)
-        
-    #     sorted_index = sorted(range(len(dyn_list)), key=lambda k: dyn_list[k])
-        
-    #     return sorted_index
-    
-    # def _average_point(self, y:np.ndarray) -> np.ndarray:
-    #     return np.mean(y, axis=1)
-    
-    # def _find_sorted_index_by_function_value(self, f:np.ndarray):
-    #     return f.argsort()
-    

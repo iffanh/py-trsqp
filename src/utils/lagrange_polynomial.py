@@ -137,7 +137,8 @@ class LagrangePolynomials:
                 
                 if self.N + 1 <= self.P and self.P <= 0.5*(self.N+1)*(self.N+2):
                     self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.polynomial_basis, self.y, self.input_symbols)
-            
+                else:
+                    self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.polynomial_basis, self.y, self.input_symbols)
             else:
                 raise Exception(f"Interpolation type of {interpolation_type} is not known. Try 'minimum' of 'frobenius'")
         else: # When lagrange polynomials is constructed manually

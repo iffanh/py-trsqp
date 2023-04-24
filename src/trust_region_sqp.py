@@ -1,6 +1,7 @@
 import numpy as np
 import casadi as ca
 from typing import List, Tuple
+from multiprocessing import Pool
 
 from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, PoisednessIsZeroException, SolutionFound
 from .utils.simulation_manager import SimulationManager
@@ -80,18 +81,35 @@ class TrustRegionSQPFilter():
     def run_simulations(self, Y:np.ndarray) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
         
         # run cost function and build the corresponding model
-        fY_cf = self.sm.cf.func(Y)
+        fY_cf = []
+        for i in range(Y.shape[1]):
+            fY = self.sm.cf.func(Y[:,i])
+            fY_cf.append(fY)
+        fY_cf = np.array(fY_cf)
+        
         # do the same with equality constraints
         fYs_eq = []
         for eqc in self.sm.eqcs.eqcs:
-            fY = eqc.func(Y)
-            fYs_eq.append(fY)
+            
+            fYs = []
+            for i in range(Y.shape[1]):
+                fY = eqc.func(Y[:,i])
+                fYs.append(fY)
+            
+            fYs = np.array(fYs)
+            fYs_eq.append(fYs)
 
         # do the same with inequality constraints
         fYs_ineq = []
         for ineqc in self.sm.ineqcs.ineqcs:
-            fY = ineqc.func(Y)
-            fYs_ineq.append(fY)
+            
+            fYs = []
+            for i in range(Y.shape[1]):
+                fY = ineqc.func(Y[:,i])
+                fYs.append(fY)
+            
+            fYs = np.array(fYs)
+            fYs_ineq.append(fYs)
         
         return fY_cf, fYs_eq, fYs_ineq
     
@@ -101,22 +119,37 @@ class TrustRegionSQPFilter():
         violations = []
         violations_eq = []
         violations_ineq = []
+        
+        self.v_eq_lists = []
+        self.v_ineq_lists = []
         for j in range(Y.shape[1]):
             
-            v = 0.0
-            v_eq = 0.0
+            v = 0.0 # getting the maximum constraint from both equality and inequality constraints
+            v_eq = 0.0 # getting the maximum value from the equality constraints
+            v_eq_list = [] # saving all the violation value for equality constraints
             for i in range(self.sm.eqcs.n_eqcs):
-                v = ca.fmax(v, ca.fabs(fYs_eq[i][j]))
-                v_eq = ca.fmax(v_eq, ca.fabs(fYs_eq[i][j]))
+                tmp = fYs_eq[i][j]
                 
-            v_ineq = 0.0
+                v_eq_list.append(tmp)
+                v = ca.fmax(v, ca.fabs(tmp))
+                v_eq = ca.fmax(v_eq, ca.fabs(tmp))
+                
+            v_ineq = 0.0 # getting the maximum value from the inequality constraints
+            v_ineq_list = [] # saving all the violation value for inequality constraints
             for i in range(self.sm.ineqcs.n_ineqcs):
+                tmp = fYs_ineq[i][j]
+                
+                v_ineq_list.append(tmp)
                 v = ca.fmax(v, ca.fmax(0.0, -fYs_ineq[i][j]))
                 v_ineq = ca.fmax(v_ineq, ca.fmax(0.0, -fYs_ineq[i][j]))
             
             violations.append(v)
             violations_eq.append(v_eq)
             violations_ineq.append(v_ineq)    
+            
+            self.v_eq_lists.append(v_eq_list)
+            self.v_ineq_lists.append(v_ineq_list)
+            
         violations = np.array(violations)
         
         return violations, violations_eq, violations_ineq
@@ -132,7 +165,7 @@ class TrustRegionSQPFilter():
         fY_cf_list = [-fy for fy in list(fY_cf)]
         
         # triples = list(zip(nearzero_viol, self.violations_ineq, self.fY_cf_list, indices))
-        triples = list(zip(self.violations_eq, self.violations_ineq, fY_cf_list, indices))
+        # triples = list(zip(self.violations_eq, self.violations_ineq, fY_cf_list, indices))
         triples = list(zip([-v for v in self.violations_eq],
                            [-v for v in self.violations_ineq], 
                            fY_cf_list, 
@@ -141,7 +174,6 @@ class TrustRegionSQPFilter():
         # triples = list(zip(fY_cf_list, self.violations_eq, self.violations_ineq, indices))
         triples.sort(key=lambda x:(x[0], x[1], x[2]), reverse=True)
         sorted_index = [ind[3] for ind in triples]
-        
         
         Y = Y[:, sorted_index]
         fY_cf = fY_cf[sorted_index]
@@ -190,8 +222,8 @@ class TrustRegionSQPFilter():
         v_ineq = 0
         for eqc in self.sm.ineqcs.ineqcs:
             fY = eqc.func(y)
-            if -ca.fabs(fY) > v_ineq:
-                v_ineq = -ca.fabs(fY)
+            if -fY > v_ineq:
+                v_ineq = -fY
         
         v = ca.fmax(0, ca.fmax(v_eq, -v_ineq))
         return fy, v
@@ -213,7 +245,15 @@ class TrustRegionSQPFilter():
             new_Y[:, poisedness.index] = y_next
             
         elif replace_type == 'worst_point': 
-            worst_index = models.m_cf.model.f.argsort()[-1]
+            # worst_index = models.m_cf.model.f.argsort()[-1]
+            indices = list(range(self.violations.shape[0]))
+            worst_f = models.m_cf.model.f.argsort()
+            worst_v = models.m_viol.violations.argsort()
+            
+            tuples = list(zip(worst_v, worst_f, indices))
+            tuples.sort(key=lambda x:(x[0], x[1]), reverse=False)
+            worst_index = [ind[2] for ind in tuples][-1]
+        
             new_Y = models.m_cf.model.y*1
             new_Y[:, worst_index] = y_next
 
@@ -245,8 +285,11 @@ class TrustRegionSQPFilter():
             iterates['iteration_no'] = k
             iterates['Y'] = Y
             iterates['fY'] = self.models.m_cf.model.f
-            iterates['v'] = self.models.m_viol.violations
+            # iterates['v'] = self.models.m_viol.violations
+            iterates['v'] = self.violations
+            iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
             iterates['y_curr'] = Y[:,0]
+            iterates['filters'] = self.filter_SQP.filters
             iterates['radius'] = radius
             iterates['models'] = self.models
             iterates['number_of_function_calls'] = self.sm.cf.number_of_function_calls
@@ -271,7 +314,8 @@ class TrustRegionSQPFilter():
             if k == 0:
                 
                 _fy = self.models.m_cf.model.f
-                _v = self.models.m_viol.violations
+                # _v = self.models.m_viol.violations
+                _v = self.violations
                 
                 for ii in range(_v.shape[0]):
                     _ = self.filter_SQP.add_to_filter((_fy[ii], _v[ii]))
@@ -279,6 +323,7 @@ class TrustRegionSQPFilter():
             try:
                 y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
                 for i in range(self.models.m_cf.model.y.shape[1]):
+                    # print(np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]))
                     if np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]) < 1E-7:
                         raise SolutionFound("Point already exist. Most likely the solution. Terminating runs")
             except EndOfAlgorithm:
@@ -314,7 +359,8 @@ class TrustRegionSQPFilter():
                                 need_model_improvement = False
                             else:
                                 radius = radius*self.constants['gamma_1']
-                                Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
+                                # Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
+                                Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                                 need_model_improvement = True
                     else:
                         self.filter_SQP.add_to_filter((fy_next, v_next))
@@ -339,8 +385,7 @@ class TrustRegionSQPFilter():
                 v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                 _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
                 
-                
-                Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
+                Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                 need_model_improvement = True
         
             if k == max_iter - 1:
