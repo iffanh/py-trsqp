@@ -57,12 +57,10 @@ class TRQP():
             for _ in range(len(models.m_ineqcs.models)):
                 ubg.append(ca.inf)
                 lbg.append(0.)
-                
-        # tr radius constraints
-        g_r = ca.norm_2(input_symbols - center)
-        g.append(g_r)
-        ubg.append(radius)
-        lbg.append(0.)
+          
+        # tr radius as input bound      
+        ubx = center + radius
+        lbx = center - radius
 
         # construct NLP problem
         nlp = {
@@ -71,17 +69,18 @@ class TRQP():
             'g': ca.vertcat(*g)
         }
 
-        opts = {'ipopt.print_level':0, 'print_time':0}
+        # opts = {"error_on_fail": True, "verbose": True}
+        opts = {'ipopt.print_level':1, 'print_time':1}
         
         # solve TRQP problem
         solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
-        sol = solver(x0=center, ubg=ubg, lbg=lbg)
+        sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
 
         is_compatible = True
         try:
             if not solver.stats()['success']:
-                print(f"fail with center as initial point")
-                sol = solver(x0=center+(radius/100), ubg=ubg, lbg=lbg)
+                print(f"fail with 1/1000th perturbation as initial point")
+                sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
                 if not solver.stats()['success']:
                     raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
         except TRQPIncompatible:
@@ -93,23 +92,26 @@ class TRQP():
     def invoke_restoration_step(self, models:ModelManager, radius:float):
         
         print(f"Invoke restoration step")
-        ubg = [2*radius]
+        ubg = [radius]
         lbg = [0]
         
         input_symbols = models.input_symbols
         data = models.m_cf.model.y
         center = data[:,0]
             
+        # tr radius as input bound      
+        ubx = center + radius
+        lbx = center - radius
+        
         nlp = {
             'x': input_symbols,
-            'f': models.m_viol.symbol,
-            'g': ca.norm_2(center - input_symbols)
+            'f': models.m_viol.symbol
         }
         
         opts = {'ipopt.print_level':0, 'print_time':0}
         
         solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
-        sol = solver(x0=center+(radius/100), ubg=ubg, lbg=lbg)
+        sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
         if solver.stats()['success']:
             pass
         else:

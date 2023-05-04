@@ -193,7 +193,7 @@ class TrustRegionSQPFilter():
         self.violations_ineq = v_ineq
                 
         Y, fY_cf, fYs_eq, fYs_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq)
-
+        
         m_cf = CostFunctionModel(input_symbols=self.input_symbols, 
                                  Y=Y, 
                                  fY=fY_cf)
@@ -303,7 +303,6 @@ class TrustRegionSQPFilter():
             if need_model_improvement:
                 poisedness = self.models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
-                    print(f"Improving model ...")
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
                     improved_model = sg.model
@@ -352,16 +351,19 @@ class TrustRegionSQPFilter():
                             radius = self.constants['gamma_1']*radius
                             Y = Y*1
                             need_model_improvement = True
+                            exit_code = 1
                         else:
                             if rho >= self.constants['eta_2']:
                                 radius = radius*self.constants['gamma_2']
                                 Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                                 need_model_improvement = False
+                                exit_code = 2
                             else:
                                 radius = radius*self.constants['gamma_1']
-                                # Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
-                                Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                                Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
+                                # Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                                 need_model_improvement = True
+                                exit_code = 3
                     else:
                         self.filter_SQP.add_to_filter((fy_next, v_next))
                             
@@ -369,16 +371,20 @@ class TrustRegionSQPFilter():
                             radius = radius*self.constants['gamma_2']
                             Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                             need_model_improvement = False
+                            exit_code = 4
                         else:
                             radius = radius*self.constants['gamma_1']
-                            Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                            # Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                            Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
                             need_model_improvement = True
+                            exit_code = 5
                     pass
                 
                 else:
                     radius = self.constants['gamma_0']*radius
                     need_model_improvement = True
                     Y = Y*1
+                    exit_code = 6
             
             else:
                 fy_curr = self.models.m_cf.model.f[0]
@@ -387,6 +393,9 @@ class TrustRegionSQPFilter():
                 
                 Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                 need_model_improvement = True
+                exit_code = 7
+                
+            print(f"exit_code = {exit_code}")
         
             if k == max_iter - 1:
                 term_status = 'Maximum iteration'

@@ -29,7 +29,6 @@ class ModelImprovement:
             poisedness = lpolynomials.poisedness(rad=rad, center=center)
             Lambda = poisedness.max_poisedness()
 
-
             ## TODO: Any ideas on how to circumvent the replacement of the best point?
             pindex = poisedness.index
             if pindex == 0:
@@ -64,15 +63,6 @@ class ModelImprovement:
                     # find new point and its OF
                     new_point = poisedness.point_to_max_poisedness()
                     
-                    is_redundant = False
-                    for ii in range(lpolynomials.y.shape[1]):
-                        if (new_point == lpolynomials.y[:,ii]).all():
-                            is_redundant = True
-                            break
-                    
-                    if is_redundant:
-                        break
-                    
                     is_new_point_a_duplicate = False
                     for i in range(lpolynomials.y.shape[1]):
                         if (new_point == lpolynomials.y[:,i]).all():
@@ -80,6 +70,22 @@ class ModelImprovement:
                             is_new_point_a_duplicate = True
                             break
                     if is_new_point_a_duplicate:
+                        print(f"Duplicate point to improve model. Rebuild sample points instead")
+                
+                        tr_radius = lpolynomials.tr_radius*1
+                        new_y = lpolynomials.y*1
+                        Y_remaining = lpolynomials.y[:, 1:]
+                        shifts = lpolynomials.y[:, [0]] - np.mean(Y_remaining, axis=1)[:, np.newaxis]
+                        new_y[:, 1:] = lpolynomials.y[:, 1:] + shifts
+
+                        for i in range(1, new_y.shape[1]):
+                            new_y[:,i] = new_y[:,0] + (new_y[:,i] - new_y[:,0])*tr_radius/np.linalg.norm(new_y[:,i] - new_y[:,0])
+
+                        lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                        lpolynomials.initialize(v=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
+
+                        best_polynomial = lpolynomials
+                        curr_Lambda = Lambda*1
                         break
 
                     # copy values
