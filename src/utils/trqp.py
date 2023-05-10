@@ -70,7 +70,7 @@ class TRQP():
         }
 
         # opts = {"error_on_fail": True, "verbose": True}
-        opts = {'ipopt.print_level':1, 'print_time':1}
+        opts = {'ipopt.print_level':0, 'print_time':0}
         
         # solve TRQP problem
         solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
