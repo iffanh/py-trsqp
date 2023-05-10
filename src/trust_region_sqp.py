@@ -14,49 +14,66 @@ class TrustRegionSQPFilter():
     def __init__(self, constants:dict, dataset:np.ndarray, cf:callable, eqcs:List[callable], ineqcs:List[callable]) -> None:
         
         def _check_constants(constants:dict) -> dict:
+            
+            if constants is not None:
+                if constants["gamma_0"] <= 0.0:
+                    raise IncorrectConstantsException(f"gamma_0 has to be larger than 0. Got {constants['gamma_0']}")
 
-            if constants["gamma_0"] <= 0.0:
-                raise IncorrectConstantsException(f"gamma_0 has to be larger than 0. Got {constants['gamma_0']}")
+                if constants["gamma_1"] <= constants["gamma_0"]:
+                    raise IncorrectConstantsException(f"gamma_1 must be strictly larger than gamma_0. Got gamma_1 = {constants['gamma_1']} and gamma_0 = {constants['gamma_0']}")
 
-            if constants["gamma_1"] <= constants["gamma_0"]:
-                raise IncorrectConstantsException(f"gamma_1 must be strictly larger than gamma_0. Got gamma_1 = {constants['gamma_1']} and gamma_0 = {constants['gamma_0']}")
+                if constants["gamma_1"] >= 1.0:
+                    raise IncorrectConstantsException(f"gamma_1 must be strictly less than 1. Got {constants['gamma_1']}")
 
-            if constants["gamma_1"] >= 1.0:
-                raise IncorrectConstantsException(f"gamma_1 must be strictly less than 1. Got {constants['gamma_1']}")
+                if constants["gamma_2"] < 1.0:
+                    raise IncorrectConstantsException(f"gamma_2 must be larger than or equal to 1. Got {constants['gamma_2']}")
 
-            if constants["gamma_2"] < 1.0:
-                raise IncorrectConstantsException(f"gamma_2 must be larger than or equal to 1. Got {constants['gamma_2']}")
+                if constants["eta_1"] <= 0.0:
+                    raise IncorrectConstantsException(f"eta_1 must be strictly larger than 0. Got {constants['eta_1']}")
 
-            if constants["eta_1"] <= 0.0:
-                raise IncorrectConstantsException(f"eta_1 must be strictly larger than 0. Got {constants['eta_1']}")
+                if constants["eta_2"] < constants["eta_1"]:
+                    raise IncorrectConstantsException(f"eta_2 must be larger than or equal to eta_1. Got eta_1 = {constants['eta_1']} and eta_2 = {constants['eta_2']}")
 
-            if constants["eta_2"] < constants["eta_1"]:
-                raise IncorrectConstantsException(f"eta_2 must be larger than or equal to eta_1. Got eta_1 = {constants['eta_1']} and eta_2 = {constants['eta_2']}")
+                if constants["eta_2"] >= 1.0:
+                    raise IncorrectConstantsException(f"eta_2 must be strictly less than 1. Got {constants['eta_2']}")
 
-            if constants["eta_2"] >= 1.0:
-                raise IncorrectConstantsException(f"eta_2 must be strictly less than 1. Got {constants['eta_2']}")
+                if constants["gamma_vartheta"] <= 0 or constants["gamma_vartheta"] >= 1:
+                    raise IncorrectConstantsException(f"gamma_vartheta must be between 0 and 1. Got {constants['gamma_vartheta']}") 
 
-            if constants["gamma_vartheta"] <= 0 or constants["gamma_vartheta"] >= 1:
-                raise IncorrectConstantsException(f"gamma_vartheta must be between 0 and 1. Got {constants['gamma_vartheta']}") 
+                if constants["kappa_vartheta"] <= 0 or constants["kappa_vartheta"] >= 1:
+                    raise IncorrectConstantsException(f"kappa_vartheta must be between 0 and 1. Got {constants['kappa_vartheta']}")
 
-            if constants["kappa_vartheta"] <= 0 or constants["kappa_vartheta"] >= 1:
-                raise IncorrectConstantsException(f"kappa_vartheta must be between 0 and 1. Got {constants['kappa_vartheta']}")
+                if constants["kappa_radius"] <= 0 or constants["kappa_radius"] > 1:
+                    raise IncorrectConstantsException(f"kappa_radius must be between 0 and 1. Got {constants['kappa_radius']}")
 
-            if constants["kappa_radius"] <= 0 or constants["kappa_radius"] > 1:
-                raise IncorrectConstantsException(f"kappa_radius must be between 0 and 1. Got {constants['kappa_radius']}")
+                if constants["kappa_mu"] <= 0:
+                    raise IncorrectConstantsException(f"kappa_mu must be strictly larger than 0. Got {constants['kappa_mu']}")
 
-            if constants["kappa_mu"] <= 0:
-                raise IncorrectConstantsException(f"kappa_mu must be strictly larger than 0. Got {constants['kappa_mu']}")
+                if constants["mu"] <= 0 or constants["mu"] >= 1:
+                    raise IncorrectConstantsException(f"mu must be between 0 and 1. Got {constants['mu']}")
 
-            if constants["mu"] <= 0 or constants["mu"] >= 1:
-                raise IncorrectConstantsException(f"mu must be between 0 and 1. Got {constants['mu']}")
+                if constants["kappa_tmd"] <= 0 or constants["kappa_tmd"] > 1:
+                    raise IncorrectConstantsException(f"kappa_tmd must be between 0 and 1. Got {constants['kappa_tmd']}")
 
-            if constants["kappa_tmd"] <= 0 or constants["kappa_tmd"] > 1:
-                raise IncorrectConstantsException(f"kappa_tmd must be between 0 and 1. Got {constants['kappa_tmd']}")
+                if constants["init_radius"] <= 0:
+                    raise IncorrectConstantsException(f"Initial radius must be strictly positive. Got {constants['init_radius']}")
+            else:
+                constants = dict()
+                constants["gamma_0"] = 0.2
+                constants["gamma_1"] = 0.7
+                constants["gamma_2"] = 1.2 #1.5 Eq
+                constants["eta_1"] = 0.1
+                constants["eta_2"] = 0.4
+                constants["mu"] = 0.01
+                constants["gamma_vartheta"] = 1E-8 #1E-4 
+                constants["kappa_vartheta"] = 1E-2
+                constants["kappa_radius"] = 0.8
+                constants["kappa_mu"] = 10
+                constants["kappa_tmd"] = 0.01
 
-            if constants["init_radius"] <= 0:
-                raise IncorrectConstantsException(f"Initial radius must be strictly positive. Got {constants['init_radius']}")
-
+                constants["init_radius"] = 1.
+                constants["stopping_radius"] = 1E-3
+                constants["L_threshold"] = 100.0
             return constants
 
         def _check_constraints(eqcs:List[callable], ineqcs:List[callable]) -> Tuple:
@@ -158,20 +175,13 @@ class TrustRegionSQPFilter():
         
         ## Here we reorder such that the center is the best point
         indices = list(range(self.violations.shape[0]))
-        nearzero_viol = np.isclose(self.violations, 
-                                   np.array([0.0 for i in range(self.violations.shape[0])]), 
-                                   atol=1E+5)
-
         fY_cf_list = [-fy for fy in list(fY_cf)]
         
-        # triples = list(zip(nearzero_viol, self.violations_ineq, self.fY_cf_list, indices))
-        # triples = list(zip(self.violations_eq, self.violations_ineq, fY_cf_list, indices))
         triples = list(zip([-v for v in self.violations_eq],
                            [-v for v in self.violations_ineq], 
                            fY_cf_list, 
                            indices))
         
-        # triples = list(zip(fY_cf_list, self.violations_eq, self.violations_ineq, indices))
         triples.sort(key=lambda x:(x[0], x[1], x[2]), reverse=True)
         sorted_index = [ind[3] for ind in triples]
         
@@ -276,16 +286,16 @@ class TrustRegionSQPFilter():
                 term_status = 'Minimum radius'
                 break
             
-            print(f"================={k}=================")
+            print(f"Iteration : {k}")
             self.models = self.main_run(Y=Y)
             Y = self.models.m_cf.model.y*1
             y_curr = Y[:,0]
+            print(f"Best current point: {y_curr}")
             
             iterates = dict()
             iterates['iteration_no'] = k
             iterates['Y'] = Y
             iterates['fY'] = self.models.m_cf.model.f
-            # iterates['v'] = self.models.m_viol.violations
             iterates['v'] = self.violations
             iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
             iterates['y_curr'] = Y[:,0]
@@ -313,7 +323,6 @@ class TrustRegionSQPFilter():
             if k == 0:
                 
                 _fy = self.models.m_cf.model.f
-                # _v = self.models.m_viol.violations
                 _v = self.violations
                 
                 for ii in range(_v.shape[0]):
@@ -322,7 +331,6 @@ class TrustRegionSQPFilter():
             try:
                 y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
                 for i in range(self.models.m_cf.model.y.shape[1]):
-                    # print(np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]))
                     if np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]) < 1E-7:
                         raise SolutionFound("Point already exist. Most likely the solution. Terminating runs")
             except EndOfAlgorithm:
@@ -360,8 +368,7 @@ class TrustRegionSQPFilter():
                                 exit_code = 2
                             else:
                                 radius = radius*self.constants['gamma_1']
-                                Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
-                                # Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                                Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                                 need_model_improvement = True
                                 exit_code = 3
                     else:
@@ -374,8 +381,7 @@ class TrustRegionSQPFilter():
                             exit_code = 4
                         else:
                             radius = radius*self.constants['gamma_1']
-                            # Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
-                            Y = self.change_point(self.models, Y, y_next, radius, 'improve_model')
+                            Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                             need_model_improvement = True
                             exit_code = 5
                     pass
