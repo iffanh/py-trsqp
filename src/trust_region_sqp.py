@@ -3,7 +3,7 @@ import casadi as ca
 from typing import List, Tuple
 from multiprocessing import Pool
 
-from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, PoisednessIsZeroException, SolutionFound
+from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, PoisednessIsZeroException, SolutionFound
 from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
 from .utils.trqp import TRQP
@@ -302,13 +302,11 @@ class TrustRegionSQPFilter():
             iterates['filters'] = self.filter_SQP.filters
             iterates['radius'] = radius
             iterates['models'] = self.models
-            iterates['number_of_function_calls'] = self.sm.cf.number_of_function_calls
+            iterates['total_number_of_function_calls'] = self.sm.cf.number_of_function_calls
             if k > 0:
-                iterates['total_number_of_function_calls'] = self.iterates[k-1]['total_number_of_function_calls'] + iterates['number_of_function_calls']
+                iterates['number_of_function_calls'] = iterates['total_number_of_function_calls'] - self.iterates[k-1]['total_number_of_function_calls'] 
             else:
-                iterates['total_number_of_function_calls'] = 0
-                
-            self.iterates.append(iterates)
+                iterates['number_of_function_calls'] = iterates['total_number_of_function_calls']*1
             
             if need_model_improvement:
                 poisedness = self.models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
@@ -331,16 +329,24 @@ class TrustRegionSQPFilter():
             try:
                 y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
                 for i in range(self.models.m_cf.model.y.shape[1]):
-                    if np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]) < 1E-7:
-                        raise SolutionFound("Point already exist. Most likely the solution. Terminating runs")
+                    if np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]) == 0.0:
+                        raise RedundantPoint(y_next)
             except EndOfAlgorithm:
                 print(f"Impossible to solve restoration step. Current iterate = {Y[:,0]}")
                 term_status = 'Restoration step'
+                exit_code = 9
+                self.iterates.append(iterates)
                 break
-            except SolutionFound:
-                print(f"Found critical point. Found a solution = {y_next}")
-                term_status = 'Critical point'
-                break
+            except RedundantPoint as e:
+                print(f"Point already exist : {e}. Try to reduce poisedness threshold")
+                term_status = 'Redundant point'
+                need_model_improvement = True
+                exit_code = 8
+                self.iterates.append(iterates)
+                continue
+                # break
+            
+            self.iterates.append(iterates)
                 
             if self.is_trqp_compatible:
                 fy_next, v_next = self.run_single_simulation(y_next)

@@ -20,3 +20,6 @@ class PoisednessIsZeroException(Exception):
 
 class SolutionFound(Exception):
     pass
+
+class RedundantPoint(Exception):
+    pass

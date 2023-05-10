@@ -102,7 +102,7 @@ class ModelImprovement:
                         curr_Lambda = Lambda*1
                         best_polynomial = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                         
-                        best_polynomial.initialize(v=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)
+                        best_polynomial.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)
                         
                         if curr_Lambda < L:
                             return best_polynomial
@@ -121,7 +121,7 @@ class ModelImprovement:
                         new_y = (lpolynomials.y - lpolynomials.sample_set.ball.center[:,np.newaxis])*rad_ratio + lpolynomials.sample_set.ball.center[:,np.newaxis]
 
                         best_polynomial = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                        best_polynomial.initialize(v=new_y, f=None, sort_type=sort_type)  
+                        best_polynomial.initialize(y=new_y, f=None, sort_type=sort_type)  
                         
                     break
             
