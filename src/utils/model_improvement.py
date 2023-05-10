@@ -89,7 +89,7 @@ class ModelImprovement:
                 
                 # create polynomials
                 lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                lpolynomials.initialize(v=new_y, f=new_f, sort_type=sort_type, tr_radius=tr_radius)       
+                lpolynomials.initialize(y=new_y, f=new_f, sort_type=sort_type, tr_radius=tr_radius)       
                 
                 # save polynomial with the smallest poisedness
                 if Lambda < curr_Lambda:

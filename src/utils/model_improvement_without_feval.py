@@ -45,13 +45,11 @@ class ModelImprovement:
                     new_y[:,i] = new_y[:,0] + (new_y[:,i] - new_y[:,0])*tr_radius/np.linalg.norm(new_y[:,i] - new_y[:,0])
 
                 lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                lpolynomials.initialize(v=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
+                lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
                 best_polynomial = lpolynomials
                 curr_Lambda = Lambda*1
                 break
-
-
             else:
                 
                 if k == 0:
@@ -66,7 +64,6 @@ class ModelImprovement:
                     is_new_point_a_duplicate = False
                     for i in range(lpolynomials.y.shape[1]):
                         if (new_point == lpolynomials.y[:,i]).all():
-                            print("Point already exist")
                             is_new_point_a_duplicate = True
                             break
                     if is_new_point_a_duplicate:
@@ -82,7 +79,7 @@ class ModelImprovement:
                             new_y[:,i] = new_y[:,0] + (new_y[:,i] - new_y[:,0])*tr_radius/np.linalg.norm(new_y[:,i] - new_y[:,0])
 
                         lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                        lpolynomials.initialize(v=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
+                        lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
                         best_polynomial = lpolynomials
                         curr_Lambda = Lambda*1
@@ -97,7 +94,7 @@ class ModelImprovement:
                     
                     # create polynomials
                     lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                    lpolynomials.initialize(v=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)       
+                    lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)       
                     
                     # save polynomial with the smallest poisedness
                     if Lambda < curr_Lambda:

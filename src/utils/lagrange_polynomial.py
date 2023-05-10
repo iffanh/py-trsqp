@@ -290,13 +290,6 @@ class LagrangePolynomials:
             Hessian = ca.jacobian(gradient, vertcat(input_symbols))
             Hessian = DM(Hessian).full()
             
-            # eigenvals, _ = np.linalg.eigh(Hessian)
-            
-            # if eigenvals[eigenvals < 0].shape[0] == 2:
-            #     ## TODO: Fix this. This is an adhoc to ensure  positive definiteness:
-            #     ## TODO: READ ABOUT SDP approach
-            #     Hessian = np.abs(Hessian)
-            
             Hessian = nearestPD(Hessian)
                 
             return (Function('gradient', [input_symbols], [gradient]), Hessian)

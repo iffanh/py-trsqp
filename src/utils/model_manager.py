@@ -12,7 +12,7 @@ class SetGeometry():
         self.rad = rad
         self.L = L
         self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(v=Y, f=None, tr_radius=rad)
+        self.model.initialize(y=Y, f=None, tr_radius=rad)
         
     def poisedness(self) -> float:
         
@@ -37,7 +37,7 @@ class SetGeometry():
 class CostFunctionModel():
     def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray) -> None:
         self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(v=Y, f=fY, tr_radius=None)
+        self.model.initialize(y=Y, f=fY, tr_radius=None)
 
     def __str__(self) -> str:
         return f"CostFunctionModel(model = {self.model.model_polynomial.symbol})"
@@ -54,7 +54,7 @@ class EqualityConstraintModels():
 class EqualityConstraintModel():
     def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray, index:int) -> None:
         self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(v=Y, f=fY, tr_radius=None)
+        self.model.initialize(y=Y, f=fY, tr_radius=None)
         self.index = index
 
     def __str__(self) -> str:
@@ -72,7 +72,7 @@ class InequalityConstraintModels():
 class InequalityConstraintModel():
     def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray, index:int) -> None:
         self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(v=Y, f=fY, tr_radius=None)
+        self.model.initialize(y=Y, f=fY, tr_radius=None)
         self.index = index
 
     def __str__(self) -> str:
