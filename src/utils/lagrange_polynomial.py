@@ -22,6 +22,61 @@ from casadi import Function, SX, DM, mtimes, vertcat, horzcat
 from .generate_poised_sets import SampleSets
 from .TR_exceptions import PoisednessIsZeroException
 
+from numpy import linalg as la
+import numpy as np
+
+
+def nearestPD(A):
+    """Find the nearest positive-definite matrix to input
+
+    A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
+    credits [2].
+
+    [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+
+    [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
+    matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
+    """
+
+    B = (A + A.T) / 2
+    _, s, V = la.svd(B)
+
+    H = np.dot(V.T, np.dot(np.diag(s), V))
+
+    A2 = (B + H) / 2
+
+    A3 = (A2 + A2.T) / 2
+
+    if isPD(A3):
+        return A3
+
+    spacing = np.spacing(la.norm(A))
+    # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
+    # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
+    # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
+    # for `np.spacing`), we use the above definition. CAVEAT: our `spacing`
+    # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
+    # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
+    # `spacing` will, for Gaussian random matrixes of small dimension, be on
+    # othe order of 1e-16. In practice, both ways converge, as the unit test
+    # below suggests.
+    I = np.eye(A.shape[0])
+    k = 1
+    while not isPD(A3):
+        mineig = np.min(np.real(la.eigvals(A3)))
+        A3 += I * (-mineig * k**2 + spacing)
+        k += 1
+
+    return A3
+
+def isPD(B):
+    """Returns true when input is positive-definite, via Cholesky"""
+    try:
+        _ = la.cholesky(B)
+        return True
+    except la.LinAlgError:
+        return False
+    
 class PolynomialBase:
     def __init__(self, symbol, feval:callable) -> None:
         
@@ -85,10 +140,16 @@ class Poisedness:
 
 class LagrangePolynomials:
     def __init__(self,  input_symbols, pdegree:int = 2):
+        
+        ### Must exists
+        self.pdegree = pdegree
+        self.input_symbols = input_symbols
+        
+    def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'frobenius', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
         """ This class should be able to generate lagrange polynomials given the samples
 
         Args:
-            v (np.ndarray): an N x (P+1) array in which each column j in P represent an interpolation point. 
+            y (np.ndarray): an N x (P+1) array in which each column j in P represent an interpolation point. 
                             N is the dimension of the vectors.
             f (np.ndarray): an N x 1 array such that f = M \alpha
             pdegree (int) : polynomial degree for the approximation
@@ -104,25 +165,23 @@ class LagrangePolynomials:
             .get_poisedness : Calculate (minimum) poisedness of the given set
             
         """
-        ### Must exists
-        self.pdegree = pdegree
-        self.input_symbols = input_symbols
         
-        
-    def initialize(self, v:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'frobenius', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
-        self.sample_set = SampleSets(v, sort_type=sort_type, f=f)
+        self.sample_set = SampleSets(y=y, sort_type=sort_type, f=f)
         
         self.y = self.sample_set.y
-        # self.f = f[self.sample_set.sorted_index]
         self.f = f
+        
+        if (self.f is not None):
+            if (self.y.shape[1] != self.f.shape[0]):
+                raise Exception("y and f do not have the same shape!")
         
         if tr_radius is None:
             self.tr_radius = self.sample_set.ball.rad
         else:
             self.tr_radius = tr_radius
         
-        self.N = v.shape[0]
-        self.P = v.shape[1]
+        self.N = y.shape[0]
+        self.P = y.shape[1]
         self.multiindices = self._get_multiindices(self.N, self.pdegree, self.P)
         self.coefficients = self._get_coefficients(self.multiindices)
         
@@ -231,15 +290,25 @@ class LagrangePolynomials:
             Hessian = ca.jacobian(gradient, vertcat(input_symbols))
             Hessian = DM(Hessian).full()
             
-            eigenvals, _ = np.linalg.eigh(Hessian)
+            # eigenvals, _ = np.linalg.eigh(Hessian)
             
-            if eigenvals[eigenvals < 0].shape[0] == 2:
-                ## TODO: Fix this. This is an adhoc to ensure  positive definiteness:
-                ## TODO: READ ABOUT SDP approach
-                Hessian = np.abs(Hessian)
-
-        return (Function('gradient', [input_symbols], [gradient]), Hessian)
+            # if eigenvals[eigenvals < 0].shape[0] == 2:
+            #     ## TODO: Fix this. This is an adhoc to ensure  positive definiteness:
+            #     ## TODO: READ ABOUT SDP approach
+            #     Hessian = np.abs(Hessian)
+            
+            Hessian = nearestPD(Hessian)
+                
+            return (Function('gradient', [input_symbols], [gradient]), Hessian)
+                
+        elif degree == 1:
+            
+            gradient = ca.jacobian(expression, vertcat(input_symbols))
+            return (Function('gradient', [input_symbols], [gradient]), None)
         
+        else:
+            raise Exception("Only pdegree of 1 or 2 are supported")
+
     def _is_close_to_zero(self, var:float, tol:float=10E-5):
         if np.abs(var) < tol:
             return 0.0
@@ -366,8 +435,6 @@ class LagrangePolynomials:
             Tuple[List[PolynomialBase], list]: List of polynomial bases and input symbols
         """
 
-        # Ndim = len(exponents[0])
-        # input_symbols = SX.sym('x', Ndim) #[x1, x2, x3 ... xNdim]
         basis = []
         for (exps, coef) in zip(exponents, coefficients):
             b = 1
