@@ -1,3 +1,5 @@
 *.pyc
 *.png
-*checkpoint.ipyng
+*checkpoint.ipynb
+pycutest_cache_folder/*
+pycutest_cache_holder/*
