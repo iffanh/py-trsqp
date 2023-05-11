@@ -11,69 +11,123 @@ from .utils.filter import FilterSQP
 # from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
-    def __init__(self, constants:dict, dataset:np.ndarray, cf:callable, eqcs:List[callable], ineqcs:List[callable]) -> None:
+    def __init__(self, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict(), dataset:np.ndarray=None) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
-            if constants is not None:
-                if constants["gamma_0"] <= 0.0:
-                    raise IncorrectConstantsException(f"gamma_0 has to be larger than 0. Got {constants['gamma_0']}")
-
-                if constants["gamma_1"] <= constants["gamma_0"]:
-                    raise IncorrectConstantsException(f"gamma_1 must be strictly larger than gamma_0. Got gamma_1 = {constants['gamma_1']} and gamma_0 = {constants['gamma_0']}")
-
-                if constants["gamma_1"] >= 1.0:
-                    raise IncorrectConstantsException(f"gamma_1 must be strictly less than 1. Got {constants['gamma_1']}")
-
-                if constants["gamma_2"] < 1.0:
-                    raise IncorrectConstantsException(f"gamma_2 must be larger than or equal to 1. Got {constants['gamma_2']}")
-
-                if constants["eta_1"] <= 0.0:
-                    raise IncorrectConstantsException(f"eta_1 must be strictly larger than 0. Got {constants['eta_1']}")
-
-                if constants["eta_2"] < constants["eta_1"]:
-                    raise IncorrectConstantsException(f"eta_2 must be larger than or equal to eta_1. Got eta_1 = {constants['eta_1']} and eta_2 = {constants['eta_2']}")
-
-                if constants["eta_2"] >= 1.0:
-                    raise IncorrectConstantsException(f"eta_2 must be strictly less than 1. Got {constants['eta_2']}")
-
-                if constants["gamma_vartheta"] <= 0 or constants["gamma_vartheta"] >= 1:
-                    raise IncorrectConstantsException(f"gamma_vartheta must be between 0 and 1. Got {constants['gamma_vartheta']}") 
-
-                if constants["kappa_vartheta"] <= 0 or constants["kappa_vartheta"] >= 1:
-                    raise IncorrectConstantsException(f"kappa_vartheta must be between 0 and 1. Got {constants['kappa_vartheta']}")
-
-                if constants["kappa_radius"] <= 0 or constants["kappa_radius"] > 1:
-                    raise IncorrectConstantsException(f"kappa_radius must be between 0 and 1. Got {constants['kappa_radius']}")
-
-                if constants["kappa_mu"] <= 0:
-                    raise IncorrectConstantsException(f"kappa_mu must be strictly larger than 0. Got {constants['kappa_mu']}")
-
-                if constants["mu"] <= 0 or constants["mu"] >= 1:
-                    raise IncorrectConstantsException(f"mu must be between 0 and 1. Got {constants['mu']}")
-
-                if constants["kappa_tmd"] <= 0 or constants["kappa_tmd"] > 1:
-                    raise IncorrectConstantsException(f"kappa_tmd must be between 0 and 1. Got {constants['kappa_tmd']}")
-
-                if constants["init_radius"] <= 0:
-                    raise IncorrectConstantsException(f"Initial radius must be strictly positive. Got {constants['init_radius']}")
-            else:
-                constants = dict()
+            try:
+                tmp = constants["gamma_0"]
+            except:
                 constants["gamma_0"] = 0.2
+                
+            try:
+                tmp = constants["gamma_1"]
+            except:
                 constants["gamma_1"] = 0.7
-                constants["gamma_2"] = 1.2 #1.5 Eq
+                
+            try:
+                tmp = constants["gamma_2"]
+            except:
+                constants["gamma_2"] = 1.2 
+                
+            try:
+                tmp = constants["eta_1"]
+            except:
                 constants["eta_1"] = 0.1
+                
+            try:
+                tmp = constants["eta_2"]
+            except:
                 constants["eta_2"] = 0.4
+                
+            try:
+                tmp = constants["mu"]
+            except:
                 constants["mu"] = 0.01
-                constants["gamma_vartheta"] = 1E-8 #1E-4 
+                
+            try:
+                tmp = constants["gamma_vartheta"]
+            except:   
+                constants["gamma_vartheta"] = 1E-8
+                
+            try:
+                tmp = constants["kappa_vartheta"]
+            except:
                 constants["kappa_vartheta"] = 1E-2
+                
+            try:
+                tmp = constants["kappa_radius"] 
+            except:
                 constants["kappa_radius"] = 0.8
+                
+            try:
+                tmp = constants["kappa_mu"] 
+            except:
                 constants["kappa_mu"] = 10
+                
+            try:
+                tmp = constants["kappa_tmd"]
+            except:
                 constants["kappa_tmd"] = 0.01
 
+            try:
+                tmp = constants["init_radius"]
+            except:
                 constants["init_radius"] = 1.
-                constants["stopping_radius"] = 1E-3
+                
+            try:
+                tmp = constants["stopping_radius"] 
+            except:
+                constants["stopping_radius"] = 1E-7
+                
+            try:
+                tmp = constants["L_threshold"] 
+            except:
                 constants["L_threshold"] = 100.0
+            
+            # if constants is not None:
+            if constants["gamma_0"] <= 0.0:
+                raise IncorrectConstantsException(f"gamma_0 has to be larger than 0. Got {constants['gamma_0']}")
+
+            if constants["gamma_1"] <= constants["gamma_0"]:
+                raise IncorrectConstantsException(f"gamma_1 must be strictly larger than gamma_0. Got gamma_1 = {constants['gamma_1']} and gamma_0 = {constants['gamma_0']}")
+
+            if constants["gamma_1"] >= 1.0:
+                raise IncorrectConstantsException(f"gamma_1 must be strictly less than 1. Got {constants['gamma_1']}")
+
+            if constants["gamma_2"] < 1.0:
+                raise IncorrectConstantsException(f"gamma_2 must be larger than or equal to 1. Got {constants['gamma_2']}")
+
+            if constants["eta_1"] <= 0.0:
+                raise IncorrectConstantsException(f"eta_1 must be strictly larger than 0. Got {constants['eta_1']}")
+
+            if constants["eta_2"] < constants["eta_1"]:
+                raise IncorrectConstantsException(f"eta_2 must be larger than or equal to eta_1. Got eta_1 = {constants['eta_1']} and eta_2 = {constants['eta_2']}")
+
+            if constants["eta_2"] >= 1.0:
+                raise IncorrectConstantsException(f"eta_2 must be strictly less than 1. Got {constants['eta_2']}")
+
+            if constants["gamma_vartheta"] <= 0 or constants["gamma_vartheta"] >= 1:
+                raise IncorrectConstantsException(f"gamma_vartheta must be between 0 and 1. Got {constants['gamma_vartheta']}") 
+
+            if constants["kappa_vartheta"] <= 0 or constants["kappa_vartheta"] >= 1:
+                raise IncorrectConstantsException(f"kappa_vartheta must be between 0 and 1. Got {constants['kappa_vartheta']}")
+
+            if constants["kappa_radius"] <= 0 or constants["kappa_radius"] > 1:
+                raise IncorrectConstantsException(f"kappa_radius must be between 0 and 1. Got {constants['kappa_radius']}")
+
+            if constants["kappa_mu"] <= 0:
+                raise IncorrectConstantsException(f"kappa_mu must be strictly larger than 0. Got {constants['kappa_mu']}")
+
+            if constants["mu"] <= 0 or constants["mu"] >= 1:
+                raise IncorrectConstantsException(f"mu must be between 0 and 1. Got {constants['mu']}")
+
+            if constants["kappa_tmd"] <= 0 or constants["kappa_tmd"] > 1:
+                raise IncorrectConstantsException(f"kappa_tmd must be between 0 and 1. Got {constants['kappa_tmd']}")
+
+            if constants["init_radius"] <= 0:
+                raise IncorrectConstantsException(f"Initial radius must be strictly positive. Got {constants['init_radius']}")
+
             return constants
 
         def _check_constraints(eqcs:List[callable], ineqcs:List[callable]) -> Tuple:
@@ -282,15 +336,16 @@ class TrustRegionSQPFilter():
         for k in range(max_iter):
 
             if radius < self.constants["stopping_radius"]:
-                print(f"Radius too small. Found a solution = {Y[:,0]}")
+                print(f"Radius too small.")
                 term_status = 'Minimum radius'
                 break
             
-            print(f"Iteration : {k}")
             self.models = self.main_run(Y=Y)
             Y = self.models.m_cf.model.y*1
             y_curr = Y[:,0]
-            print(f"Best current point: {y_curr}")
+            f_curr = self.models.m_cf.model.f[0]
+            v_curr = self.violations[0]
+            print(f"Iteration : {k}: Best current point, x: {y_curr}. f: {f_curr}, v: {v_curr}")
             
             iterates = dict()
             iterates['iteration_no'] = k
