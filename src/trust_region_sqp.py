@@ -8,10 +8,11 @@ from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
 from .utils.trqp import TRQP
 from .utils.filter import FilterSQP
+from .utils.model_improvement_without_feval import generate_uniform_sample_nsphere
 # from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
-    def __init__(self, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict(), dataset:np.ndarray=None) -> None:
+    def __init__(self, x0:np.ndarray, k:int, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict()) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -140,9 +141,8 @@ class TrustRegionSQPFilter():
         self.n_eqcs, self.n_ineqcs = _check_constraints(eqcs=eqcs, ineqcs=ineqcs)
         self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
 
-        self.dataset = dataset
-        
-        self.input_symbols = ca.SX.sym('x', self.dataset.shape[0])
+        self.dataset = x0[:, np.newaxis] + constants['init_radius']*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
+        self.input_symbols = ca.SX.sym('x', x0.shape[0])
 
         pass
 
@@ -323,9 +323,10 @@ class TrustRegionSQPFilter():
 
         return new_Y
 
-    def run(self, max_iter=15):
+    def optimize(self, max_iter=15):
         
         need_model_improvement = False
+        it_code = -1
         
         # initialize filter
         self.filter_SQP = FilterSQP(constants=self.constants)
@@ -345,7 +346,7 @@ class TrustRegionSQPFilter():
             y_curr = Y[:,0]
             f_curr = self.models.m_cf.model.f[0]
             v_curr = self.violations[0]
-            print(f"Iteration : {k}: Best current point, x: {y_curr}. f: {f_curr}, v: {v_curr}")
+            print(f"Iteration : {k}: Best current point, x: {y_curr}. f: {f_curr}, v: {v_curr}, it_code: {it_code}")
             
             iterates = dict()
             iterates['iteration_no'] = k
@@ -389,14 +390,14 @@ class TrustRegionSQPFilter():
             except EndOfAlgorithm:
                 print(f"Impossible to solve restoration step. Current iterate = {Y[:,0]}")
                 term_status = 'Restoration step'
-                exit_code = 9
+                it_code = 9
                 self.iterates.append(iterates)
                 break
             except RedundantPoint as e:
                 print(f"Point already exist : {e}. Try to reduce poisedness threshold")
                 term_status = 'Redundant point'
                 need_model_improvement = True
-                exit_code = 8
+                it_code = 8
                 self.iterates.append(iterates)
                 continue
                 # break
@@ -419,19 +420,22 @@ class TrustRegionSQPFilter():
                         if rho < self.constants['eta_1']:
                             radius = self.constants['gamma_1']*radius
                             Y = Y*1
+                            Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_0']
+                            ### TODO: ad hoc to allow shrinking of the points (not only the radius) to "improve" the interpoaltion in the neighborhood
+                            ### This messed up the precision of the center point somehow
                             need_model_improvement = True
-                            exit_code = 1
+                            it_code = 1
                         else:
                             if rho >= self.constants['eta_2']:
                                 radius = radius*self.constants['gamma_2']
                                 Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                                 need_model_improvement = False
-                                exit_code = 2
+                                it_code = 2
                             else:
                                 radius = radius*self.constants['gamma_1']
                                 Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                                 need_model_improvement = True
-                                exit_code = 3
+                                it_code = 3
                     else:
                         self.filter_SQP.add_to_filter((fy_next, v_next))
                             
@@ -439,19 +443,27 @@ class TrustRegionSQPFilter():
                             radius = radius*self.constants['gamma_2']
                             Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                             need_model_improvement = False
-                            exit_code = 4
+                            it_code = 4
                         else:
                             radius = radius*self.constants['gamma_1']
                             Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                             need_model_improvement = True
-                            exit_code = 5
+                            it_code = 5
                     pass
                 
                 else:
                     radius = self.constants['gamma_0']*radius
                     need_model_improvement = True
                     Y = Y*1
-                    exit_code = 6
+                    Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_0'] # DEBUG
+                    ### TODO: ad hoc to allow shrinking of the points (not only the radius) to "improve" the interpoaltion in the neighborhood
+                    ### This messed up the precision of the center point somehow
+                    it_code = 6
+                    
+                    
+                    
+                    
+                    
             
             else:
                 fy_curr = self.models.m_cf.model.f[0]
@@ -460,9 +472,7 @@ class TrustRegionSQPFilter():
                 
                 Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
                 need_model_improvement = True
-                exit_code = 7
-                
-            print(f"exit_code = {exit_code}")
+                it_code = 7
         
             if k == max_iter - 1:
                 term_status = 'Maximum iteration'

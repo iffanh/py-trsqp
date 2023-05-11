@@ -91,7 +91,7 @@ class LagrangePolynomial:
         self.max_sol = None
         
     def _func_to_minimize(self, x:np.ndarray):
-        return -np.abs(self.feval(x))
+        return self.feval(x)
     
     def cons_f(self, x:np.ndarray, center:np.ndarray) -> float:
         return np.linalg.norm(x - center)
@@ -255,7 +255,6 @@ class LagrangePolynomials:
 
         for i, lp in enumerate(lagrange_polynomials):
             
-            # max_sol, feval = lp._find_max_given_boundary(x0=self.y[:,0], rad=rad, center=center)  
             max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)          
             max_sols.append(max_sol)
             Lambdas.append(np.abs(feval))
