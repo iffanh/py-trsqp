@@ -12,6 +12,7 @@ from .utils.model_improvement_without_feval import generate_uniform_sample_nsphe
 # from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
+    
     def __init__(self, x0:np.ndarray, k:int, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict()) -> None:
         
         def _check_constants(constants:dict) -> dict:
@@ -309,7 +310,6 @@ class TrustRegionSQPFilter():
             new_Y[:, poisedness.index] = y_next
             
         elif replace_type == 'worst_point': 
-            # worst_index = models.m_cf.model.f.argsort()[-1]
             indices = list(range(self.violations.shape[0]))
             worst_f = models.m_cf.model.f.argsort()
             worst_v = models.m_viol.violations.argsort()
