@@ -4,6 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
+    packages=setuptools.find_packages('src', exclude=['test']),
     name='py-trsqp',
     version='0.0.1',
     author='Muhammad Iffan Hannanu',
@@ -14,7 +15,7 @@ setuptools.setup(
     url='https://github.com/iffanh/py-trsqp',
     project_urls = {
     },
-    license='GNU',
+    license='GPLv3',
     packages=['py-trsqp'],
     install_requires=['requests'],
 )
