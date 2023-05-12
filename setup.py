@@ -16,6 +16,5 @@ setuptools.setup(
     project_urls = {
     },
     license='GPLv3',
-    packages=['py-trsqp'],
     install_requires=['requests'],
 )
