@@ -8,13 +8,22 @@ To solve the TRQP subproblem, the repository utilizes IPOPT, a powerful optimiza
 
 ## Installation
 
+Make sure you have a compatible Python environment set up before installing the dependencies.
+
+First, install the dependencies: 
+
+```shell
+pip install numpy
+pip install scipy
+pip install casadi
+pip install matplotlib
+```
+
 To install the Trust-Region-Method package, run the following command:
 
 ```shell
 pip install git+https://github.com/iffanh/py-trsqp.git
 ```
-
-Make sure you have a compatible Python environment set up before installing the dependencies.
 
 ## Examples
 
