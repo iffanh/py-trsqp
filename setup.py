@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    packages=setuptools.find_packages('src', exclude=['test', 'utils']),
+    packages=setuptools.find_packages('py_trsqp', exclude=['test'], include=['utils']),
     name='py_trsqp',
     version='0.0.1',
     author='Muhammad Iffan Hannanu',
