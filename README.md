@@ -27,7 +27,27 @@ pip install git+https://github.com/iffanh/py-trsqp.git
 
 ## Examples
 
-The `examples` folder in this repository contains notebooks that demonstrate the usage of the Trust-Region-Method package. These notebooks showcase various optimization problems and illustrate how to apply the trust-region method with output constraints to solve them. To explore the examples, navigate to the `examples` folder and run the notebooks using a Jupyter environment.
+Here is a simple usage of the package.
+```python 
+import py_trsqp.trsqp as tq
+import numpy as np
+
+def cf(x):
+    return 10*(x[0]-1.0)**2 + 4*(x[1]-1.0)**2
+
+def ineq(x):
+    return x[0] - x[1] - 1
+
+tr = tq.TrustRegionSQPFilter(x0=np.array([-1.5,-1.0]).T, 
+                             k=5,
+                             cf=cf, 
+                             eqcs=[], 
+                             ineqcs=[ineq])
+
+tr.optimize(max_iter=20)
+```
+
+The `examples` folder in this repository contains notebooks that demonstrate the usage of the this package. These notebooks showcase various optimization problems and illustrate how to apply the trust-region method with output constraints to solve them. To explore the examples, navigate to the `examples` folder and run the notebooks using a Jupyter environment.
 
 ## Reference
 
