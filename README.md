@@ -1,4 +1,4 @@
-# Trust-Region-Method
+# Sequential Quadratic Programming Trust-Region Filter Algorithm
 
 This repository contains a trust-region method for black-box optimization problems with the handling of output constraints. The algorithm used is the SQP-filter with a few modifications, providing an efficient approach for solving optimization problems where the objective function and constraints are not explicitly known but can be evaluated through a black-box function.
 
