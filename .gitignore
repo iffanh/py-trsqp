@@ -1,5 +1,5 @@
 *.pyc
 *.png
 *checkpoint.ipynb
-pycutest_cache_folder/*
+benchmark.py
 pycutest_cache_holder/*
