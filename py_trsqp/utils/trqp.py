@@ -70,7 +70,7 @@ class TRQP():
         }
 
         # opts = {"error_on_fail": True, "verbose": True}
-        opts = {'ipopt.print_level':0, 'print_time':0}
+        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
         
         # solve TRQP problem
         solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
@@ -79,7 +79,7 @@ class TRQP():
         is_compatible = True
         try:
             if not solver.stats()['success']:
-                print(f"fail with 1/1000th perturbation as initial point")
+                print(f"fail with 1/p perturbation as initial point")
                 sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
                 if not solver.stats()['success']:
                     raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
@@ -108,7 +108,7 @@ class TRQP():
             'f': models.m_viol.symbol
         }
         
-        opts = {'ipopt.print_level':0, 'print_time':0}
+        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
         
         solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
         sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)

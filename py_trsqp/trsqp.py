@@ -145,8 +145,6 @@ class TrustRegionSQPFilter():
         self.dataset = x0[:, np.newaxis] + constants['init_radius']*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
         self.input_symbols = ca.SX.sym('x', x0.shape[0])
 
-        pass
-
     def __str__(self) -> str:
         return f"TrustRegionSQPFilter(n_eqcs={self.n_eqcs}, n_ineqcs={self.n_ineqcs})"
     
@@ -346,7 +344,7 @@ class TrustRegionSQPFilter():
             y_curr = Y[:,0]
             f_curr = self.models.m_cf.model.f[0]
             v_curr = self.violations[0]
-            print(f"Iteration : {k}: Best current point, x: {y_curr}. f: {f_curr}, v: {v_curr}, it_code: {it_code}")
+            print(f"Iteration : {k}: Best current point, x: {y_curr}. f: {f_curr}, v: {v_curr}, radius: {radius}, it_code: {it_code}")
             
             iterates = dict()
             iterates['iteration_no'] = k
@@ -371,7 +369,7 @@ class TrustRegionSQPFilter():
                     sg.improve_geometry()        
                     improved_model = sg.model
                     self.models = self.main_run(Y=improved_model.y)
-                    Y = improved_model.y
+                    Y = self.models.m_cf.model.y
             
             poisedness = self.models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
             if k == 0:
@@ -419,10 +417,7 @@ class TrustRegionSQPFilter():
                     if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2): 
                         if rho < self.constants['eta_1']:
                             radius = self.constants['gamma_1']*radius
-                            Y = Y*1
-                            Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_0']
-                            ### TODO: ad hoc to allow shrinking of the points (not only the radius) to "improve" the interpoaltion in the neighborhood
-                            ### This messed up the precision of the center point somehow
+                            Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_1'] # replace all points except the center
                             need_model_improvement = True
                             it_code = 1
                         else:
@@ -454,17 +449,9 @@ class TrustRegionSQPFilter():
                 else:
                     radius = self.constants['gamma_0']*radius
                     need_model_improvement = True
-                    Y = Y*1
-                    Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_0'] # DEBUG
-                    ### TODO: ad hoc to allow shrinking of the points (not only the radius) to "improve" the interpoaltion in the neighborhood
-                    ### This messed up the precision of the center point somehow
+                    Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_0'] # replace all points except the center
                     it_code = 6
                     
-                    
-                    
-                    
-                    
-            
             else:
                 fy_curr = self.models.m_cf.model.f[0]
                 v_curr = self.models.m_viol.feval(y_curr).full()[0][0]

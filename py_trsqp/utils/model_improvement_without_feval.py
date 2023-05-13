@@ -2,10 +2,10 @@ from .lagrange_polynomial import LagrangePolynomials, LagrangePolynomial
 import numpy as np
 import casadi as ca
 from typing import Any, Tuple, List
-np.random.seed(123)
 
 def _generate_uniform_sample_nsphere(k:int, d:int):
-    samples = np.random.normal(loc=0.0, scale=1.0, size=(d, k))
+    RNG = np.random.default_rng(seed=12345)
+    samples = RNG.normal(loc=0.0, scale=1.0, size=(d, k))
     for i in range(samples.shape[1]):
         sample = samples[:,i]
         d = np.linalg.norm(sample)
@@ -44,6 +44,19 @@ def generate_uniform_sample_nsphere(k:int, d:int):
     # plt.scatter(lpolynomials.y[0, :], lpolynomials.y[1, :], color='red', alpha=0.5)
     # ax.add_patch(plt.Circle([0,0], 1.0, fill=False))
     # plt.savefig("/home/iffanh/GitRepositories/Trust-Region-Method/circle.png")
+    
+    ## making sure that the point at the origin is exactly at zero
+    
+    tmp = np.inf
+    index = -1
+    for j in range(k):
+        if np.linalg.norm(new_y[:, j]) < tmp:
+            tmp = np.linalg.norm(new_y[:, j])
+            index = j*1
+    new_y[:, index] = np.array([0.0]*d)
+    lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+    lpolynomials.initialize(y=new_y, f=None, tr_radius=tr_radius)   
+    
     return lpolynomials.y
 
 class ModelImprovement:
@@ -76,10 +89,7 @@ class ModelImprovement:
 
             ## TODO: Any ideas on how to circumvent the replacement of the best point?
             pindex = poisedness.index
-            if pindex == 0:
-                
-                print(f"Rebuild sample points")
-                
+            if pindex == 0:                
                 tr_radius = lpolynomials.tr_radius*1
                 new_y = lpolynomials.y*1
                     
@@ -92,7 +102,6 @@ class ModelImprovement:
                 curr_Lambda = Lambda*1
                 break
             else:
-                
                 if k == 0:
                     best_polynomial = lpolynomials
                     curr_Lambda = Lambda*1
@@ -107,8 +116,6 @@ class ModelImprovement:
                             is_new_point_a_duplicate = True
                             break
                     if is_new_point_a_duplicate:
-                        print(f"Duplicate point to improve model. Rebuild sample points instead")
-                
                         tr_radius = lpolynomials.tr_radius*1
                         new_y = lpolynomials.y*1
 
@@ -137,13 +144,11 @@ class ModelImprovement:
 
                         curr_Lambda = Lambda*1
                         best_polynomial = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                        
                         best_polynomial.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)
                         
                         if curr_Lambda < L:
                             return best_polynomial
                 else:
-                    
                     # Ad-hoc:
                     # - check if the number of points given the radius is enough for interpolation.
                     # - if not, scale the outside points with the said radius
@@ -161,7 +166,7 @@ class ModelImprovement:
                     
                     tr_radius = lpolynomials.tr_radius*1
                     new_y = lpolynomials.y*1
-                        
+                
                     surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
                     new_y = new_y[:,[0]] + surface_points*tr_radius
                     lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)

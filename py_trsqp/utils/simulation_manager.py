@@ -1,11 +1,5 @@
-import julia
-import numpy as np
-jl = julia.Julia(compiled_modules=False)  
-
 class SimulationManager():
     def __init__(self, cf, eqcs, ineqcs) -> None:
-        #Initialize database
-        # self.db = DataBase() 
     
         self.eqcs = EqualityConstraints(eqcs=eqcs); 
         self.ineqcs = InequalityConstraints(ineqcs=ineqcs)
