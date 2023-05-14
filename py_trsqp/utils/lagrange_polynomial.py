@@ -25,6 +25,7 @@ from .TR_exceptions import PoisednessIsZeroException
 from numpy import linalg as la
 import numpy as np
 
+@functools.lru_cache()
 def product(*args, repeat=1, limit=3):
     pools = [tuple(pool) for pool in args] * repeat
     result = [[]]
