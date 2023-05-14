@@ -25,15 +25,19 @@ from .TR_exceptions import PoisednessIsZeroException
 from numpy import linalg as la
 import numpy as np
 
-@functools.lru_cache()
-def product(*args, repeat=1, limit=3):
+def _product(*args, repeat=1, limit=3):
     pools = [tuple(pool) for pool in args] * repeat
     result = [[]]
     for pool in pools:
         result = [x+[y] for x in result for y in pool if np.sum(x) + y < limit]
     for prod in result:
         yield tuple(prod)
-        
+       
+@functools.lru_cache() 
+def product(*args, repeat=1, limit=3):
+    m = [i for i in _product(*args, repeat=repeat, limit=limit)]
+    return m
+
 def nearestPD(A):
     """Find the nearest positive-definite matrix to input
 
@@ -471,10 +475,11 @@ class LagrangePolynomials:
         """
         range_tuples = range(d + 1)
         multiindices = product(range_tuples, repeat=n, limit=d+1)
-        multiindices = [i for i in multiindices]
+        # multiindices = [i for i in multiindices]
         
         # Make sure that the order of the polynomial basis is based on the level of expansion
         multiindices.sort(key= lambda x: np.sum(x))
+        
         return multiindices 
          
     def _product(self, *argument):
