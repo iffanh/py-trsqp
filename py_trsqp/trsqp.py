@@ -143,6 +143,7 @@ class TrustRegionSQPFilter():
         self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
 
         self.dataset = x0[:, np.newaxis] + constants['init_radius']*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
+        
         self.input_symbols = ca.SX.sym('x', x0.shape[0])
 
     def __str__(self) -> str:

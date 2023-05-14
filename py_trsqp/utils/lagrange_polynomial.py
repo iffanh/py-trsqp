@@ -25,7 +25,14 @@ from .TR_exceptions import PoisednessIsZeroException
 from numpy import linalg as la
 import numpy as np
 
-
+def product(*args, repeat=1, limit=3):
+    pools = [tuple(pool) for pool in args] * repeat
+    result = [[]]
+    for pool in pools:
+        result = [x+[y] for x in result for y in pool if np.sum(x) + y < limit]
+    for prod in result:
+        yield tuple(prod)
+        
 def nearestPD(A):
     """Find the nearest positive-definite matrix to input
 
@@ -165,12 +172,10 @@ class LagrangePolynomials:
             .get_poisedness : Calculate (minimum) poisedness of the given set
             
         """
-        
         self.sample_set = SampleSets(y=y, sort_type=sort_type, f=f)
         
         self.y = self.sample_set.y
         self.f = f
-        
         if (self.f is not None):
             if (self.y.shape[1] != self.f.shape[0]):
                 raise Exception("y and f do not have the same shape!")
@@ -182,9 +187,10 @@ class LagrangePolynomials:
         
         self.N = y.shape[0]
         self.P = y.shape[1]
-        self.multiindices = self._get_multiindices(self.N, self.pdegree, self.P)
-        self.coefficients = self._get_coefficients(self.multiindices)
         
+        self.multiindices = self._get_multiindices(self.N, self.pdegree)
+        self.coefficients = self._get_coefficients(self.multiindices)
+    
         # Possible improvement is to let user decide which basis they want, e.g. for underdetermined problems (Ch. 5)
         self.polynomial_basis, _ = self._get_polynomial_basis(self.multiindices, self.coefficients)
         
@@ -451,7 +457,7 @@ class LagrangePolynomials:
         coefficients = [np.prod(scipy.special.factorial(ind)) for ind in multiindices]
         return coefficients
         
-    def _get_multiindices(self, n:int, d:int, p:int) -> list:
+    def _get_multiindices(self, n:int, d:int) -> list:
         """ This function is responsible to get the multiindices to build the polynomial basis
 
         Args:
@@ -462,10 +468,9 @@ class LagrangePolynomials:
         Returns:
             list: all possible combination of the multiindices, Combination(n + d, d)
         """
-        range_tuples = tuple([range(d + 1)]*n)
-        multiindices = self._product(*range_tuples)
-
-        multiindices = [ind for ind in multiindices if np.sum(ind) <= d]
+        range_tuples = range(d + 1)
+        multiindices = product(range_tuples, repeat=n, limit=d+1)
+        multiindices = [i for i in multiindices]
         
         # Make sure that the order of the polynomial basis is based on the level of expansion
         multiindices.sort(key= lambda x: np.sum(x))
