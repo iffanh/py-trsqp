@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import casadi as ca
 
-import src.utils.lagrange_polynomial as lp
+import py_trsqp.utils.lagrange_polynomial as lp
 
 INPUT_SYMBOLS = ca.SX.sym('x', 2)
 Y = np.array([[0.0, 0.0],
@@ -26,6 +26,8 @@ YGOOD = np.array([[0.0, 0.0],
                 [0.707, -0.707]]).T
 
 FGOOD = cf(YGOOD)
+
+YLARGE = np.random.random(size=(15, 45))
 
 class LagrangePolynomialsTest(unittest.TestCase):
     
@@ -57,6 +59,14 @@ class LagrangePolynomialsTest(unittest.TestCase):
     
         self.assertListEqual(l.multiindices, [(0,0), (0,1), (1,0), (0,2), (1,1), (2,0)])
         self.assertListEqual(l.coefficients, [1.0, 1.0, 1.0, 2.0, 1, 2.0])
+        
+        # large dataset. This has to be computed fast!
+        input_symbols_large = ca.SX.sym('x', YLARGE.shape[0])
+        l = lp.LagrangePolynomials(input_symbols=input_symbols_large, 
+                                    pdegree=2)
+        l.initialize(y=YLARGE, f=None, sort_type='function')
+    
+        
         
     def test_polynomial_basis(self):
         

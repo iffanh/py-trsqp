@@ -3,8 +3,8 @@ import unittest
 import numpy as np
 import casadi as ca
 
-import src.utils.model_improvement_without_feval as mi
-import src.utils.lagrange_polynomial as lp
+import py_trsqp.utils.model_improvement_without_feval as mi
+import py_trsqp.utils.lagrange_polynomial as lp
 
 INPUT_SYMBOLS = ca.SX.sym('x', 2)
 Y = np.array([[0.0, 0.0],

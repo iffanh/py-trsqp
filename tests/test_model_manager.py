@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import casadi as ca
 
-import src.utils.model_manager as mm
+import py_trsqp.utils.model_manager as mm
 
 INPUT_SYMBOLS = ca.SX.sym('x', 2)
 Y = np.array([[0.0, 0.0],
