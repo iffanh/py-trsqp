@@ -9,8 +9,91 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class TRQP():
-    def __init__(self, models:ModelManager, radius:float) -> None:
-        self.sol, self.radius, self.is_compatible = self.invoke_composite_step(models, radius)
+    def __init__(self, models:ModelManager, radius:float, solver:str="penalty") -> None:
+        
+        if solver == "ipopt":
+            self.sol, self.radius, self.is_compatible = self.invoke_composite_step(models, radius)
+        elif solver == "penalty":
+            self.sol, self.radius, self.is_compatible = self.invoke_penalty_step(models, radius)
+        
+    def invoke_penalty_step(self, models:ModelManager, radius:float):
+        from scipy.optimize import minimize, Bounds
+        
+        data = models.m_cf.model.y
+        center = data[:,0]
+         
+        input_symbols = models.input_symbols
+
+        # Cost function
+        cf = models.m_cf.model.model_polynomial.symbol
+        
+        phi = cf + 0
+        
+        xk = center
+        for k in range(100):
+            mu = 1.0
+            # Build ultimate objective function
+            ## equality constraints
+            for m in models.m_eqcs.models:
+                phi = phi + mu*(m.model.model_polynomial.symbol**2)
+                
+            ## inequality constraints
+            for m in models.m_ineqcs.models:
+                phi = phi + mu*(ca.fmax(0, -m.model.model_polynomial.symbol))**2
+                
+            phif = ca.Function('phif', [input_symbols], [phi])
+            
+            # tr radius as input bound      
+            ubx = center + radius
+            lbx = center - radius
+            
+            prob = minimize(phif, xk, method="SLSQP", bounds=Bounds(lb=lbx, ub=ubx))
+            
+            if not prob.success:
+                raise Exception(prob.message)
+            
+            xprev = xk
+            xk = prob.x
+            
+            if np.abs(phif(xprev) - phif(xk)) < 1E-5:
+                sol = xk
+                break
+            
+            # update penalty
+            mu = mu*1.2
+            
+            if k == 99:
+                print("Not solved!!")
+                raise Exception("Not solved")
+            
+        return ca.DM(sol), radius, True
+
+    def invoke_penalty_restoration_step(self, models:ModelManager, radius:float):
+        input_symbols = models.input_symbols
+        data = models.m_cf.model.y
+        center = data[:,0]
+            
+        # tr radius as input bound      
+        ubx = center + radius
+        lbx = center - radius
+        
+        nlp = {
+            'x': input_symbols,
+            'f': models.m_viol.symbol
+        }
+        
+        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
+        
+        solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
+        sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
+        if solver.stats()['success']:
+            pass
+        else:
+            # raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
+            print(f"Next solution point might not be totally feasible")
+            pass
+            
+        return sol, radius
 
     def invoke_composite_step(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
         ## construct TQRP problem (page 722, Chapter 15: Sequential Quadratic Programming)
@@ -92,8 +175,6 @@ class TRQP():
     def invoke_restoration_step(self, models:ModelManager, radius:float):
         
         print(f"Invoke restoration step")
-        ubg = [radius]
-        lbg = [0]
         
         input_symbols = models.input_symbols
         data = models.m_cf.model.y
@@ -111,7 +192,7 @@ class TRQP():
         opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
         
         solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
-        sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+        sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
         if solver.stats()['success']:
             pass
         else:

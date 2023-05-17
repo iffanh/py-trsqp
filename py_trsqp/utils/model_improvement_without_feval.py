@@ -2,6 +2,7 @@ from .lagrange_polynomial import LagrangePolynomials, LagrangePolynomial
 import numpy as np
 import casadi as ca
 from typing import Any, Tuple, List
+import functools
 
 def _generate_uniform_sample_nsphere(k:int, d:int):
     RNG = np.random.default_rng(seed=12345)
@@ -13,7 +14,9 @@ def _generate_uniform_sample_nsphere(k:int, d:int):
         samples[:,i] = sample
     return samples
 
-def generate_uniform_sample_nsphere(k:int, d:int):
+@functools.lru_cache() 
+def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
+    print(f"Generating uniform points on the n-sphere ...")
     input_symbols = ca.SX.sym('x', d)
     samples = _generate_uniform_sample_nsphere(k, d)
     
@@ -22,10 +25,14 @@ def generate_uniform_sample_nsphere(k:int, d:int):
         
     for i in range(k):
         poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
-        # curr_lambda = poisedness.max_poisedness()
+        curr_lambda = poisedness.max_poisedness()
+        if curr_lambda < L:
+            # enough
+            new_y = lpolynomials.y*1
+            tr_radius = lpolynomials.tr_radius*1
+            break
         
         pindex = poisedness.index
-        
         new_point = poisedness.point_to_max_poisedness()
         
         # copy values
@@ -39,14 +46,7 @@ def generate_uniform_sample_nsphere(k:int, d:int):
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
         lpolynomials.initialize(y=new_y, f=None, tr_radius=tr_radius)     
     
-    # fig, ax = plt.subplots()
-    # plt.scatter(samples[0,:], samples[1,:], color='blue', alpha=0.5)
-    # plt.scatter(lpolynomials.y[0, :], lpolynomials.y[1, :], color='red', alpha=0.5)
-    # ax.add_patch(plt.Circle([0,0], 1.0, fill=False))
-    # plt.savefig("/home/iffanh/GitRepositories/Trust-Region-Method/circle.png")
-    
     ## making sure that the point at the origin is exactly at zero
-    
     tmp = np.inf
     index = -1
     for j in range(k):
@@ -56,6 +56,8 @@ def generate_uniform_sample_nsphere(k:int, d:int):
     new_y[:, index] = np.array([0.0]*d)
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=new_y, f=None, tr_radius=tr_radius)   
+    
+    print(f"Poisedness of the points on the surface of the n-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d)).max_poisedness()}")
     
     return lpolynomials.y
 
@@ -82,7 +84,6 @@ class ModelImprovement:
         """
         
         for k in range(max_iter):
-            
             # Algorithm 6.3
             poisedness = lpolynomials.poisedness(rad=rad, center=center)
             Lambda = poisedness.max_poisedness()
@@ -143,11 +144,9 @@ class ModelImprovement:
                     if Lambda < curr_Lambda:
 
                         curr_Lambda = Lambda*1
-                        best_polynomial = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                        best_polynomial.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)
                         
                         if curr_Lambda < L:
-                            return best_polynomial
+                            return lpolynomials
                 else:
                     # Ad-hoc:
                     # - check if the number of points given the radius is enough for interpolation.
@@ -155,15 +154,6 @@ class ModelImprovement:
                     # - should have some look up table to see whether points inside are available
                     
                     ## TODO: Maybe algorithm 6.2
-                        
-                    # break
-                    # rad_ratio = rad/lpolynomials.sample_set.ball.rad
-                    # if rad_ratio < 1.0:
-                    #     new_y = (lpolynomials.y - lpolynomials.sample_set.ball.center[:,np.newaxis])*rad_ratio + lpolynomials.sample_set.ball.center[:,np.newaxis]
-
-                    #     best_polynomial = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                    #     best_polynomial.initialize(y=new_y, f=None, sort_type=sort_type)  
-                    
                     tr_radius = lpolynomials.tr_radius*1
                     new_y = lpolynomials.y*1
                 

@@ -9,11 +9,11 @@ from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, E
 from .utils.trqp import TRQP
 from .utils.filter import FilterSQP
 from .utils.model_improvement_without_feval import generate_uniform_sample_nsphere
-# from .utils.lagrange_polynomial import LagrangePolynomials
+from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
     
-    def __init__(self, x0:np.ndarray, k:int, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict()) -> None:
+    def __init__(self, x0:np.ndarray, k:int, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict(), opts:dict={'solver': "penalty"}) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -138,6 +138,7 @@ class TrustRegionSQPFilter():
             
             return n_eqcs, n_ineqcs
 
+        self.opts = opts
         self.constants = _check_constants(constants=constants)
         self.n_eqcs, self.n_ineqcs = _check_constraints(eqcs=eqcs, ineqcs=ineqcs)
         self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
@@ -293,7 +294,8 @@ class TrustRegionSQPFilter():
         return fy, v
 
     def solve_TRQP(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
-        trqp_mod = TRQP(models, radius)
+        solver = self.opts["solver"]
+        trqp_mod = TRQP(models, radius, solver=solver)
         sol = trqp_mod.sol.full()[:,0]
         is_trqp_compatible = trqp_mod.is_compatible
         radius = trqp_mod.radius
@@ -326,6 +328,7 @@ class TrustRegionSQPFilter():
         
         need_model_improvement = False
         it_code = -1
+        neval = 0
         
         # initialize filter
         self.filter_SQP = FilterSQP(constants=self.constants)
@@ -340,12 +343,31 @@ class TrustRegionSQPFilter():
                 term_status = 'Minimum radius'
                 break
             
-            self.models = self.main_run(Y=Y)
-            Y = self.models.m_cf.model.y*1
+            if need_model_improvement:
+                model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                model.initialize(y=Y, tr_radius=radius)
+                poisedness = model.poisedness(rad=radius, center=Y[:,0])
+                if poisedness.max_poisedness() > self.constants['L_threshold']:
+                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
+                    sg.improve_geometry()        
+                    improved_model = sg.model
+                    self.models = self.main_run(Y=improved_model.y)
+                    Y = self.models.m_cf.model.y
+            else:
+                self.models = self.main_run(Y=Y)
+                Y = self.models.m_cf.model.y*1
+                
             y_curr = Y[:,0]
             f_curr = self.models.m_cf.model.f[0]
             v_curr = self.violations[0]
-            print(f"Iteration : {k}: Best current point, x: {y_curr}. f: {f_curr}, v: {v_curr}, radius: {radius}, it_code: {it_code}")
+            
+            if k == 0:
+                
+                _fy = self.models.m_cf.model.f
+                _v = self.violations
+                
+                for ii in range(_v.shape[0]):
+                    _ = self.filter_SQP.add_to_filter((_fy[ii], _v[ii]))
             
             iterates = dict()
             iterates['iteration_no'] = k
@@ -363,23 +385,9 @@ class TrustRegionSQPFilter():
             else:
                 iterates['number_of_function_calls'] = iterates['total_number_of_function_calls']*1
             
-            if need_model_improvement:
-                poisedness = self.models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
-                if poisedness.max_poisedness() > self.constants['L_threshold']:
-                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
-                    sg.improve_geometry()        
-                    improved_model = sg.model
-                    self.models = self.main_run(Y=improved_model.y)
-                    Y = self.models.m_cf.model.y
+            neval = iterates['number_of_function_calls']
             
-            poisedness = self.models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
-            if k == 0:
-                
-                _fy = self.models.m_cf.model.f
-                _v = self.violations
-                
-                for ii in range(_v.shape[0]):
-                    _ = self.filter_SQP.add_to_filter((_fy[ii], _v[ii]))
+            print(f"Iteration {k}: Best point, x: {y_curr}, f: {f_curr}, v: {v_curr}, radius: {radius}, it_code: {it_code}, n_func_evals={neval}")
             
             try:
                 y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
@@ -398,8 +406,7 @@ class TrustRegionSQPFilter():
                 need_model_improvement = True
                 it_code = 8
                 self.iterates.append(iterates)
-                continue
-                # break
+                break
             
             self.iterates.append(iterates)
                 
@@ -418,7 +425,6 @@ class TrustRegionSQPFilter():
                     if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2): 
                         if rho < self.constants['eta_1']:
                             radius = self.constants['gamma_1']*radius
-                            Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_1'] # replace all points except the center
                             need_model_improvement = True
                             it_code = 1
                         else:
@@ -450,7 +456,6 @@ class TrustRegionSQPFilter():
                 else:
                     radius = self.constants['gamma_0']*radius
                     need_model_improvement = True
-                    Y[:, 1:] = Y[:, [0]] + (Y[:, 1:] - Y[:, [0]])*self.constants['gamma_0'] # replace all points except the center
                     it_code = 6
                     
             else:

@@ -12,7 +12,6 @@ class FilterSQP():
         is_acceptable = False
         self.filters.sort(key=lambda x: x[1])
         if len(self.filters) == 0:
-            print("Initialization condition")
             self.filters.append(coordinate)
             is_acceptable = True
         
