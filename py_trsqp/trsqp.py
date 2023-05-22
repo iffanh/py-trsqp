@@ -20,7 +20,7 @@ class TrustRegionSQPFilter():
             try:
                 tmp = constants["gamma_0"]
             except:
-                constants["gamma_0"] = 0.2
+                constants["gamma_0"] = 0.5
                 
             try:
                 tmp = constants["gamma_1"]
@@ -320,8 +320,8 @@ class TrustRegionSQPFilter():
             worst_index = [ind[2] for ind in tuples][-1]
         
             new_Y = models.m_cf.model.y*1
-            new_Y[:, worst_index] = y_next
-
+            new_Y[:, worst_index] = new_Y[:, 0]
+            new_Y[:, 0] = y_next
         return new_Y
 
     def optimize(self, max_iter=15):
@@ -340,10 +340,11 @@ class TrustRegionSQPFilter():
 
             if radius < self.constants["stopping_radius"]:
                 print(f"Radius too small.")
-                term_status = 'Minimum radius'
+                exit_code = 'Minimum radius'
                 break
             
             if need_model_improvement:
+                # TODO: introduce criticality step!!!
                 model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                 model.initialize(y=Y, tr_radius=radius)
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
@@ -353,10 +354,13 @@ class TrustRegionSQPFilter():
                     improved_model = sg.model
                     self.models = self.main_run(Y=improved_model.y)
                     Y = self.models.m_cf.model.y
+                else:
+                    self.models = self.main_run(Y=Y)
+                    Y = self.models.m_cf.model.y*1
             else:
                 self.models = self.main_run(Y=Y)
                 Y = self.models.m_cf.model.y*1
-                
+            
             y_curr = Y[:,0]
             f_curr = self.models.m_cf.model.f[0]
             v_curr = self.violations[0]
@@ -387,7 +391,7 @@ class TrustRegionSQPFilter():
             
             neval = iterates['number_of_function_calls']
             
-            print(f"Iteration {k}: Best point, x: {y_curr}, f: {f_curr}, v: {v_curr}, radius: {radius}, it_code: {it_code}, n_func_evals={neval}")
+            print(f"It. {k}: Best point, x= {y_curr}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
             
             try:
                 y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
@@ -396,17 +400,18 @@ class TrustRegionSQPFilter():
                         raise RedundantPoint(y_next)
             except EndOfAlgorithm:
                 print(f"Impossible to solve restoration step. Current iterate = {Y[:,0]}")
-                term_status = 'Restoration step'
+                exit_code = 'Restoration step'
                 it_code = 9
                 self.iterates.append(iterates)
                 break
             except RedundantPoint as e:
                 print(f"Point already exist : {e}. Try to reduce poisedness threshold")
-                term_status = 'Redundant point'
+                exit_code = 'Redundant point'
                 need_model_improvement = True
                 it_code = 8
                 self.iterates.append(iterates)
                 break
+            
             
             self.iterates.append(iterates)
                 
@@ -421,7 +426,7 @@ class TrustRegionSQPFilter():
                     mfy_next = self.models.m_cf.model.model_polynomial.feval(y_next)
                     fy_curr = self.models.m_cf.model.f[0]
                     
-                    rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)
+                    rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)        
                     if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2): 
                         if rho < self.constants['eta_1']:
                             radius = self.constants['gamma_1']*radius
@@ -468,6 +473,7 @@ class TrustRegionSQPFilter():
                 it_code = 7
         
             if k == max_iter - 1:
-                term_status = 'Maximum iteration'
+                exit_code = 'Maximum iteration'
             
-        self.termination_status = term_status
+        self.termination_status = exit_code
+        print(f"Termination code : {exit_code}")

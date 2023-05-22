@@ -29,7 +29,6 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         if curr_lambda < L:
             # enough
             new_y = lpolynomials.y*1
-            tr_radius = lpolynomials.tr_radius*1
             break
         
         pindex = poisedness.index
@@ -37,14 +36,13 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         
         # copy values
         new_y = lpolynomials.y*1
-        tr_radius = lpolynomials.tr_radius*1
         
         # replace value
         new_y[:, pindex] = new_point
         
         # create polynomials
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        lpolynomials.initialize(y=new_y, f=None, tr_radius=tr_radius)     
+        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)     
     
     ## making sure that the point at the origin is exactly at zero
     tmp = np.inf
@@ -54,11 +52,14 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
             tmp = np.linalg.norm(new_y[:, j])
             index = j*1
     new_y[:, index] = np.array([0.0]*d)
+    
+    tmp = new_y[:, index]*1
+    new_y[:,index] = new_y[:, 0]
+    new_y[:,0] = tmp
+    
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-    lpolynomials.initialize(y=new_y, f=None, tr_radius=tr_radius)   
-    
+    lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
     print(f"Poisedness of the points on the surface of the n-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d)).max_poisedness()}")
-    
     return lpolynomials.y
 
 class ModelImprovement:
@@ -90,12 +91,12 @@ class ModelImprovement:
 
             ## TODO: Any ideas on how to circumvent the replacement of the best point?
             pindex = poisedness.index
-            if pindex == 0:                
+            if pindex == 0:     
                 tr_radius = lpolynomials.tr_radius*1
                 new_y = lpolynomials.y*1
                     
                 surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
-                new_y = new_y[:,[0]] + surface_points*tr_radius
+                new_y = center[:, np.newaxis] + surface_points*tr_radius
                 lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                 lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
@@ -121,14 +122,17 @@ class ModelImprovement:
                         new_y = lpolynomials.y*1
 
                         surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
-                        new_y = new_y[:,[0]] + surface_points*tr_radius
+                        new_y = center[:, np.newaxis] + surface_points*tr_radius
                         lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                         lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
+                        poisedness = lpolynomials.poisedness(rad=rad, center=center)
+                        Lambda = poisedness.max_poisedness()
+                        
                         best_polynomial = lpolynomials
                         curr_Lambda = Lambda*1
                         break
-
+                    
                     # copy values
                     new_y = lpolynomials.y*1
                     tr_radius = lpolynomials.tr_radius*1
@@ -158,7 +162,7 @@ class ModelImprovement:
                     new_y = lpolynomials.y*1
                 
                     surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
-                    new_y = new_y[:,[0]] + surface_points*tr_radius
+                    new_y = center[:, np.newaxis] + surface_points*tr_radius
                     lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                     lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 

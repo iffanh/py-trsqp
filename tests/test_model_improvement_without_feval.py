@@ -54,3 +54,7 @@ class ModelImprovementTest(unittest.TestCase):
         self.assertGreater(p_before, p_after)
         
         pass
+    
+if __name__ == '__main__':
+    # begin the unittest.main()
+    unittest.main()

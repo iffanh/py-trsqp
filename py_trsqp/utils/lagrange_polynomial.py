@@ -24,6 +24,7 @@ from .TR_exceptions import PoisednessIsZeroException
 
 from numpy import linalg as la
 import numpy as np
+import copy
 
 from multiprocessing import Pool
 
@@ -108,14 +109,14 @@ class LagrangePolynomial:
         self.max_sol = None
         
     def _func_to_minimize(self, x:np.ndarray):
-        return self.feval(x)
+        return -np.abs(self.feval(x))
     
     def cons_f(self, x:np.ndarray, center:np.ndarray) -> float:
         # return np.linalg.norm(x - center)
         return (x-center)**2
     
     def _define_nonlinear_constraint(self, rad:float, center:np.ndarray) -> NonlinearConstraint:
-        return NonlinearConstraint(functools.partial(self.cons_f, center), 0, rad)
+        return NonlinearConstraint(functools.partial(self.cons_f, center), 0, rad**2)
     
     def _define_nonlinear_bounds(self, rad:float, center:np.ndarray) -> Bounds:
         return Bounds(lb=center-rad, ub=center+rad)
@@ -125,6 +126,13 @@ class LagrangePolynomial:
         nlinear_constraint = self._define_nonlinear_constraint(rad, center)
         nlinear_bound = self._define_nonlinear_bounds(rad, center)
         self.max_sol = minimize(self._func_to_minimize, x0, method='SLSQP', bounds=nlinear_bound, constraints=[nlinear_constraint])
+    
+        if not self.max_sol.success:
+            # print(f"self.max_sol.success = {self.max_sol.success}")
+            # print(f"self.max_sol.message = {self.max_sol.message}")
+            # raise Exception(f"Poisedness calculation is wrong: {self.max_sol.message}")
+            pass
+                
         self.min_lambda = self.feval(self.max_sol.x)
         
         return self.max_sol.x, self.min_lambda
@@ -157,13 +165,13 @@ class Poisedness:
     
 
 class LagrangePolynomials:
-    def __init__(self,  input_symbols, pdegree:int = 2):
+    def __init__(self, input_symbols, pdegree:int = 2):
         
         ### Must exists
         self.pdegree = pdegree
         self.input_symbols = input_symbols
         
-    def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'frobenius', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
+    def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'minimum', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
         """ This class should be able to generate lagrange polynomials given the samples
 
         Args:
@@ -183,6 +191,15 @@ class LagrangePolynomials:
             .get_poisedness : Calculate (minimum) poisedness of the given set
             
         """
+        
+        ### TODO: DEBUG
+        # shift to center for the input symbol s = (x - c)
+        
+        self.original_symbols = copy.copy(self.input_symbols)
+        input_symbols = copy.copy(self.input_symbols)
+        for i in range(y.shape[0]):
+            input_symbols[i] = self.input_symbols[i] - y[i,0]
+        
         self.sample_set = SampleSets(y=y, sort_type=sort_type, f=f)
         
         self.y = self.sample_set.y
@@ -203,7 +220,7 @@ class LagrangePolynomials:
         self.coefficients = self._get_coefficients(self.multiindices)
     
         # Possible improvement is to let user decide which basis they want, e.g. for underdetermined problems (Ch. 5)
-        self.polynomial_basis, _ = self._get_polynomial_basis(self.multiindices, self.coefficients)
+        self.polynomial_basis, _ = self._get_polynomial_basis(self.multiindices, self.coefficients, input_symbols)
         
         if lpolynomials is None:
             if interpolation_type == 'minimum':
@@ -256,12 +273,13 @@ class LagrangePolynomials:
         ## in most cases rad and center should be default to None and therefore the rad and center
         ## will be calculated directly from the lagrange polynomial's sample set
         ## only in special cases that rad and center are specified, like in the case of Algorithm 6.3
-        if rad is None:
-            rad = self.sample_set.ball.rad
-        if center is None:
-            center = self.sample_set.ball.center
+        # if rad is None:
+        #     rad = self.sample_set.ball.rad
+        # if center is None:
+        #     center = self.sample_set.ball.center
         
         # self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.y, is_gen=True)
+        
         return self._get_poisedness(self.lagrange_polynomials, rad, center)
         
     def _get_poisedness(self, lagrange_polynomials:List[LagrangePolynomial], rad:float, center:np.ndarray) -> Poisedness:
@@ -423,7 +441,7 @@ class LagrangePolynomials:
         # Build matrix F (eq 5.7)
         matrix_A = mtimes(basis_matrix_quadratic, basis_matrix_quadratic.T)
         matrix_F = vertcat(horzcat(matrix_A, basis_matrix_linear), horzcat(basis_matrix_linear.T, 0*SX.eye(basis_matrix_linear.shape[1])))
-        
+    
         try:
             matrix_F_inv = ca.inv(matrix_F)
         except:
@@ -432,16 +450,17 @@ class LagrangePolynomials:
         # Construct (Eq 5.9) F x L = B
         matrix_B = vertcat(mtimes(basis_matrix_quadratic,basis_vector_quadratic), basis_vector_linear)
         solution_matrix = mtimes(matrix_F_inv,matrix_B)
-        
+    
         polys = [solution_matrix[i, :][0] for i in range(matrix_A.shape[0])]
-        lpolynomials = map(functools.partial(lagrange, input_symbols=self.input_symbols), polys, range(matrix_A.shape[0])) #faster than for loop
+        # lpolynomials = map(functools.partial(lagrange, input_symbols=self.input_symbols), polys, range(matrix_A.shape[0])) #faster than for loop
+        lpolynomials = map(functools.partial(lagrange, input_symbols=self.original_symbols), polys, range(matrix_A.shape[0])) #faster than for loop
         
         if is_gen:
             return lpolynomials
         else:
             return list(lpolynomials)
     
-    def _get_polynomial_basis(self, exponents:list, coefficients:list) -> Tuple[List[PolynomialBase], list]:
+    def _get_polynomial_basis(self, exponents:list, coefficients:list, input_symbols) -> Tuple[List[PolynomialBase], list]:
         """Responsible for generating all the polynomial basis, also returning input_symbols
 
         Args:
@@ -455,12 +474,13 @@ class LagrangePolynomials:
         basis = []
         for (exps, coef) in zip(exponents, coefficients):
             b = 1
-            for symb, exp in zip(self.input_symbols.nz, exps):
+            for symb, exp in zip(input_symbols.nz, exps):
                 b *= symb**exp
             b = b/coef
 
             # (phi(x) sympy symbol, phi(x) evaluation), function evaluation called using a list x, phi(x)
-            basis.append(PolynomialBase(b, Function('phi_b', [self.input_symbols], [b])))
+            # basis.append(PolynomialBase(b, Function('phi_b', [self.input_symbols], [b])))
+            basis.append(PolynomialBase(b, Function('phi_b', [self.original_symbols], [b])))
 
         return basis, self.input_symbols
 
