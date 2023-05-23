@@ -226,14 +226,14 @@ class TrustRegionSQPFilter():
         
         return violations, violations_eq, violations_ineq
     
-    def reorder_samples(self, Y, fY_cf, fYs_eq, fYs_ineq):
+    def reorder_samples(self, Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq):
         
         ## Here we reorder such that the center is the best point
-        indices = list(range(self.violations.shape[0]))
+        indices = list(range(v.shape[0]))
         fY_cf_list = [-fy for fy in list(fY_cf)]
         
-        triples = list(zip([-v for v in self.violations_eq],
-                           [-v for v in self.violations_ineq], 
+        triples = list(zip([-v for v in v_eq],
+                           [-v for v in v_ineq], 
                            fY_cf_list, 
                            indices))
         
@@ -246,18 +246,22 @@ class TrustRegionSQPFilter():
         fYs_eq = [f[sorted_index] for f in fYs_eq]
         fYs_ineq = [f[sorted_index] for f in fYs_ineq]
         
-        return Y, fY_cf, fYs_eq, fYs_ineq
+        v[:] = [v[i] for i in sorted_index]
+        v_eq[:] = [v_eq[i] for i in sorted_index]
+        v_ineq[:] = [v_ineq[i] for i in sorted_index]
+        
+        return Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq
     
     def main_run(self, Y:np.ndarray):
 
         fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
         
         v, v_eq, v_ineq = self.calculate_violation(Y=Y, fYs_eq=fYs_eq, fYs_ineq=fYs_ineq)
+        
+        Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq)
         self.violations = v
         self.violations_eq = v_eq
         self.violations_ineq = v_ineq
-                
-        Y, fY_cf, fYs_eq, fYs_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq)
         
         m_cf = CostFunctionModel(input_symbols=self.input_symbols, 
                                  Y=Y, 
