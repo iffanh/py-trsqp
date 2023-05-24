@@ -1,9 +1,9 @@
 import numpy as np
 import casadi as ca
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from multiprocessing import Pool
 
-from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, PoisednessIsZeroException, SolutionFound
+from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, PoisednessIsZeroException, SolutionFound, IncorrectInputException
 from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
 from .utils.trqp import TRQP
@@ -13,7 +13,7 @@ from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
     
-    def __init__(self, x0:np.ndarray, k:int, cf:callable, eqcs:List[callable], ineqcs:List[callable], constants:dict=dict(), opts:dict={'solver': "penalty"}) -> None:
+    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "penalty"}) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -138,9 +138,31 @@ class TrustRegionSQPFilter():
             
             return n_eqcs, n_ineqcs
 
+        def _check_input(ub, lb, x0) -> Tuple[List, List]:
+            # check typing
+            if (type(ub) is list) and (type(lb) is list):
+                if not (len(ub) == len(lb)):
+                    raise IncorrectInputException(f"Upper bound and lower bound have to be the same size. Got len(ub) = {len(ub)} and len(lb) = {len(lb)}")
+                    
+                if not (len(ub) == len(x0)):
+                    raise IncorrectInputException(f"Initial values and constraints have to be the same size. Got len(x0) = {len(x0)} and len(ub) = {len(ub)}")
+                    
+            elif (type(ub) is float) and (type(lb) is float):
+                ub = [ub for i in range(len(x0))]
+                lb = [lb for i in range(len(x0))]
+            
+            else:
+                # should not come here
+                raise IncorrectInputException(f"Type of ub and lb must be either list or float. Got type(ub) = {type(ub)} and type(lb) = {type(lb)}")
+            
+            return ub, lb
+        
         self.opts = opts
         self.constants = _check_constants(constants=constants)
         self.n_eqcs, self.n_ineqcs = _check_constraints(eqcs=eqcs, ineqcs=ineqcs)
+        self.ub, self.lb = _check_input(ub=ub, lb=lb, x0=x0)
+        
+        x0 = np.array(x0)
         self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
 
         self.dataset = x0[:, np.newaxis] + constants['init_radius']*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
@@ -299,11 +321,9 @@ class TrustRegionSQPFilter():
 
     def solve_TRQP(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
         solver = self.opts["solver"]
-        trqp_mod = TRQP(models, radius, solver=solver)
+        trqp_mod = TRQP(models=models, ub=self.ub, lb=self.lb, radius=radius, solver=solver)
         sol = trqp_mod.sol.full()[:,0]
-        is_trqp_compatible = trqp_mod.is_compatible
-        radius = trqp_mod.radius
-        return sol, radius, is_trqp_compatible
+        return sol, trqp_mod.radius, trqp_mod.is_compatible
     
     def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, radius:float, replace_type:str) -> np.ndarray:
         

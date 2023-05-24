@@ -9,14 +9,14 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class TRQP():
-    def __init__(self, models:ModelManager, radius:float, solver:str="penalty") -> None:
+    def __init__(self, models:ModelManager, ub:list, lb:list, radius:float, solver:str="penalty") -> None:
         
         if solver == "ipopt":
-            self.sol, self.radius, self.is_compatible = self.invoke_composite_step(models, radius)
+            self.sol, self.radius, self.is_compatible = self.invoke_composite_step(models, ub, lb, radius)
         elif solver == "penalty":
-            self.sol, self.radius, self.is_compatible = self.invoke_penalty_step(models, radius)
+            self.sol, self.radius, self.is_compatible = self.invoke_penalty_step(models, ub, lb, radius)
         
-    def invoke_penalty_step(self, models:ModelManager, radius:float):
+    def invoke_penalty_step(self, models:ModelManager, ub:float, lb:float, radius:float):
         from scipy.optimize import minimize, Bounds
         
         data = models.m_cf.model.y
@@ -44,8 +44,9 @@ class TRQP():
             phif = ca.Function('phif', [input_symbols], [phi])
             
             # tr radius as input bound      
-            ubx = center + radius
-            lbx = center - radius
+            ubx = np.min((center + radius, ub), axis=0) 
+            lbx = np.max((center - radius, lb), axis=0)
+            lbx[lbx > ubx] = ubx[lbx > ubx]
             
             prob = minimize(phif, xk, method="SLSQP", bounds=Bounds(lb=lbx, ub=ubx))
             
@@ -68,14 +69,15 @@ class TRQP():
             
         return ca.DM(sol), radius, True
 
-    def invoke_penalty_restoration_step(self, models:ModelManager, radius:float):
+    def invoke_penalty_restoration_step(self, models:ModelManager, ub:float, lb:float, radius:float):
         input_symbols = models.input_symbols
         data = models.m_cf.model.y
         center = data[:,0]
             
         # tr radius as input bound      
-        ubx = center + radius
-        lbx = center - radius
+        ubx = np.min((center + radius, ub), axis=0) 
+        lbx = np.max((center - radius, lb), axis=0)
+        lbx[lbx > ubx] = ubx[lbx > ubx]
         
         nlp = {
             'x': input_symbols,
@@ -95,7 +97,7 @@ class TRQP():
             
         return sol, radius
 
-    def invoke_composite_step(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
+    def invoke_composite_step(self, models:ModelManager, ub:list, lb:list, radius:float) -> Tuple[np.ndarray, float, bool]:
         ## construct TQRP problem (page 722, Chapter 15: Sequential Quadratic Programming)
         data = models.m_cf.model.y
         center = data[:,0]
@@ -124,8 +126,7 @@ class TRQP():
             for _ in range(len(models.m_eqcs.models)):
                 ubg.append(0.)
                 lbg.append(0.)
-
-            
+      
         # Inequality constraints
         if len(models.m_ineqcs.models) == 0:
             pass
@@ -142,9 +143,10 @@ class TRQP():
                 lbg.append(0.)
           
         # tr radius as input bound      
-        ubx = center + radius
-        lbx = center - radius
-
+        ubx = np.min((center + radius, ub), axis=0) 
+        lbx = np.max((center - radius, lb), axis=0)
+        lbx[lbx > ubx] = ubx[lbx > ubx]
+        
         # construct NLP problem
         nlp = {
             'x': input_symbols,
@@ -167,12 +169,12 @@ class TRQP():
                 if not solver.stats()['success']:
                     raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
         except TRQPIncompatible:
-            sol, radius = self.invoke_restoration_step(models, radius)
+            sol, radius = self.invoke_restoration_step(models, ub, lb, radius)
             is_compatible = False
 
         return sol['x'], radius, is_compatible
 
-    def invoke_restoration_step(self, models:ModelManager, radius:float):
+    def invoke_restoration_step(self, models:ModelManager, ub:list, lb:list, radius:float):
         
         print(f"Invoke restoration step")
         
@@ -181,8 +183,11 @@ class TRQP():
         center = data[:,0]
             
         # tr radius as input bound      
-        ubx = center + radius
-        lbx = center - radius
+        ubx = np.min((center + radius, ub), axis=0) 
+        lbx = np.max((center - radius, lb), axis=0)
+        lbx[lbx > ubx] = ubx[lbx > ubx]
+        
+            
         
         nlp = {
             'x': input_symbols,

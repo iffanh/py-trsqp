@@ -23,3 +23,6 @@ class SolutionFound(Exception):
 
 class RedundantPoint(Exception):
     pass
+
+class IncorrectInputException(Exception):
+    pass
