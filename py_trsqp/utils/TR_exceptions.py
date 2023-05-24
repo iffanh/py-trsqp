@@ -26,3 +26,6 @@ class RedundantPoint(Exception):
 
 class IncorrectInputException(Exception):
     pass
+
+class FailedSimulation(Exception):
+    pass

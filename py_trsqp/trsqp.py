@@ -3,7 +3,7 @@ import casadi as ca
 from typing import List, Tuple, Union
 from multiprocessing import Pool
 
-from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, PoisednessIsZeroException, SolutionFound, IncorrectInputException
+from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, IncorrectInputException, FailedSimulation
 from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
 from .utils.trqp import TRQP
@@ -178,6 +178,8 @@ class TrustRegionSQPFilter():
         fY_cf = []
         for i in range(Y.shape[1]):
             fY = self.sm.cf.func(Y[:,i])
+            if np.isnan(fY):
+                raise FailedSimulation(f"Failed at x={Y[:,i]}")
             fY_cf.append(fY)
         fY_cf = np.array(fY_cf)
         
@@ -188,6 +190,8 @@ class TrustRegionSQPFilter():
             fYs = []
             for i in range(Y.shape[1]):
                 fY = eqc.func(Y[:,i])
+                if np.isnan(fY):
+                    raise FailedSimulation(f"Failed at x={Y[:,i]}")
                 fYs.append(fY)
             
             fYs = np.array(fYs)
@@ -200,6 +204,8 @@ class TrustRegionSQPFilter():
             fYs = []
             for i in range(Y.shape[1]):
                 fY = ineqc.func(Y[:,i])
+                if np.isnan(fY):
+                    raise FailedSimulation(f"Failed at x={Y[:,i]}")
                 fYs.append(fY)
             
             fYs = np.array(fYs)
@@ -276,29 +282,42 @@ class TrustRegionSQPFilter():
     
     def main_run(self, Y:np.ndarray):
 
-        fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
+        try:
+            fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
+            v, v_eq, v_ineq = self.calculate_violation(Y=Y, fYs_eq=fYs_eq, fYs_ineq=fYs_ineq)
+            Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq)
+            fail_flag = False
+        except FailedSimulation as e:
+            fY_cf = None
+            fYs_eq = [None]
+            fYs_ineq = [None]
+            v = np.array([None])
+            v_eq = np.array([None])
+            v_ineq = np.array([None])
+            self.v_eq_lists = [None]
+            self.v_ineq_lists = [None]
+            fail_flag = True
+            
         
-        v, v_eq, v_ineq = self.calculate_violation(Y=Y, fYs_eq=fYs_eq, fYs_ineq=fYs_ineq)
-        
-        Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq)
         self.violations = v
         self.violations_eq = v_eq
         self.violations_ineq = v_ineq
         
         m_cf = CostFunctionModel(input_symbols=self.input_symbols, 
-                                 Y=Y, 
-                                 fY=fY_cf)
+                                Y=Y, 
+                                fY=fY_cf)
 
         m_eqcs = EqualityConstraintModels(input_symbols=self.input_symbols, 
                                     Y=Y, 
                                     fYs=fYs_eq)
 
         m_ineqcs = InequalityConstraintModels(input_symbols=self.input_symbols, 
-                                              Y=Y, 
-                                              fYs=fYs_ineq)
+                                            Y=Y, 
+                                            fYs=fYs_ineq)
         
-        m_viol = ViolationModel(input_symbols=self.input_symbols, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, Y=Y)
-
+        m_viol = ViolationModel(input_symbols=self.input_symbols, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, Y=Y, fail_flag=fail_flag)
+        
+              
         return ModelManager(input_symbols=self.input_symbols, m_cf=m_cf, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, m_viol=m_viol)
 
     def run_single_simulation(self, y:np.ndarray) -> Tuple[float, float]:
@@ -395,7 +414,8 @@ class TrustRegionSQPFilter():
                 _v = self.violations
                 
                 for ii in range(_v.shape[0]):
-                    _ = self.filter_SQP.add_to_filter((_fy[ii], _v[ii]))
+                    if _v[ii] is not None:
+                        _ = self.filter_SQP.add_to_filter((_fy[ii], _v[ii]))
             
             iterates = dict()
             iterates['iteration_no'] = k
@@ -415,8 +435,19 @@ class TrustRegionSQPFilter():
             
             neval = iterates['number_of_function_calls']
             
-            print(f"It. {k}: Best point, x= {y_curr}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
             
+            #Inform user
+
+            if f_curr is not None:
+                print(f"It. {k}: Best point, x= {y_curr}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
+            else:
+                print(f"It. {k}: Failed.")
+                radius = self.constants['gamma_1']*radius
+                need_model_improvement = True
+                it_code = 10
+                self.iterates.append(iterates)
+                continue
+                
             try:
                 y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
                 for i in range(self.models.m_cf.model.y.shape[1]):
@@ -441,6 +472,7 @@ class TrustRegionSQPFilter():
                 
             if self.is_trqp_compatible:
                 fy_next, v_next = self.run_single_simulation(y_next)
+                print(fy_next, v_next)
                 is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next))
 
                 if is_acceptable_in_the_filter:

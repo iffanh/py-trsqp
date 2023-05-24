@@ -207,6 +207,8 @@ class LagrangePolynomials:
         if (self.f is not None):
             if (self.y.shape[1] != self.f.shape[0]):
                 raise Exception("y and f do not have the same shape!")
+        else:
+            self.f = [None]*self.y.shape[0]
         
         if tr_radius is None:
             self.tr_radius = self.sample_set.ball.rad
@@ -327,7 +329,6 @@ class LagrangePolynomials:
             gradient = ca.jacobian(expression, vertcat(input_symbols))
             Hessian = ca.jacobian(gradient, vertcat(input_symbols))
             Hessian = DM(Hessian).full()
-            
             Hessian = nearestPD(Hessian)
                 
             return (Function('gradient', [input_symbols], [gradient]), Hessian)
@@ -360,7 +361,7 @@ class LagrangePolynomials:
             ModelPolynomial: Model polynomial
         """
 
-        if f is None:
+        if f[0] is None:
             return None
         else:            
             polynomial_sum = 0
@@ -397,7 +398,6 @@ class LagrangePolynomials:
         basis_vector = vertcat(*[d.symbol for d in basis])
         
         lagrange_matrix = mtimes(np.matmul(basis_matrix,(np.linalg.pinv(np.matmul(basis_matrix.T,basis_matrix)))), basis_vector) # Eq (4.7)
-        
         
         lpolynomials = []
         for i in range(lagrange_matrix.shape[0]):
