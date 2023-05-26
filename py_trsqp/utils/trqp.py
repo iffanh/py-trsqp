@@ -155,23 +155,24 @@ class TRQP():
         }
 
         # opts = {"error_on_fail": True, "verbose": True}
-        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level':2, 'print_time':0, 'ipopt.sb': 'yes'}
         
         # solve TRQP problem
         solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
-        sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+        # sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
 
         is_compatible = True
         try:
             if not solver.stats()['success']:
-                print(f"fail with 1/1000 perturbation as initial point")
-                sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
-                if not solver.stats()['success']:
+                # print(f"fail with 1/1000 perturbation as initial point")
+                sol = solver(x0=center+(radius/1E+20), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+                if solver.stats()['return_status'] == "Infeasible_Problem_Detected":
                     raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
         except TRQPIncompatible:
             sol, radius = self.invoke_restoration_step(models, ub, lb, radius)
             is_compatible = False
-
+            
         return sol['x'], radius, is_compatible
 
     def invoke_restoration_step(self, models:ModelManager, ub:list, lb:list, radius:float):
@@ -187,8 +188,6 @@ class TRQP():
         lbx = np.max((center - radius, lb), axis=0)
         lbx[lbx > ubx] = ubx[lbx > ubx]
         
-            
-        
         nlp = {
             'x': input_symbols,
             'f': models.m_viol.symbol
@@ -197,7 +196,8 @@ class TRQP():
         opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
         
         solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
-        sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
+        # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
+        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx)
         if solver.stats()['success']:
             pass
         else:

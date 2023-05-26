@@ -2,7 +2,7 @@ import numpy as np
 import casadi as ca
 from typing import List, Tuple, Union
 from multiprocessing import Pool
-
+import copy
 from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, IncorrectInputException, FailedSimulation
 from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
@@ -162,13 +162,38 @@ class TrustRegionSQPFilter():
         self.n_eqcs, self.n_ineqcs = _check_constraints(eqcs=eqcs, ineqcs=ineqcs)
         self.ub, self.lb = _check_input(ub=ub, lb=lb, x0=x0)
         
+        ## Transform input and bounds
         x0 = np.array(x0)
-        self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
-
+        self.xn = x0*1
+        self.zero_flags = x0 == 0.0
+        
+        x0 = self.norm(x0)
+        self.ub = self.norm(np.array(self.ub))
+        self.lb = self.norm(np.array(self.lb))
         self.dataset = x0[:, np.newaxis] + constants['init_radius']*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
         
+        ## Transform functions
+        cf = self.transform_functions(cf)
+        
+        eqcs = [self.transform_functions(eqc) for eqc in eqcs]
+        ineqcs = [self.transform_functions(ineqc) for ineqc in ineqcs]
+        
+        self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
         self.input_symbols = ca.SX.sym('x', x0.shape[0])
-
+    
+    def transform_functions(self, f:callable):
+        return lambda x: f(self.denorm(x))
+    
+    def norm(self, x:np.ndarray):
+        a = copy.copy(x)
+        a[~self.zero_flags] = x[~self.zero_flags]/np.abs(self.xn[~self.zero_flags])
+        return a
+    
+    def denorm(self, x:np.ndarray):
+        a = copy.copy(x)
+        a[~self.zero_flags] = np.multiply(x[~self.zero_flags],np.abs(self.xn[~self.zero_flags]))
+        return a
+    
     def __str__(self) -> str:
         return f"TrustRegionSQPFilter(n_eqcs={self.n_eqcs}, n_ineqcs={self.n_ineqcs})"
     
@@ -178,7 +203,7 @@ class TrustRegionSQPFilter():
         fY_cf = []
         for i in range(Y.shape[1]):
             fY = self.sm.cf.func(Y[:,i])
-            if np.isnan(fY):
+            if np.isnan(fY) or np.isinf(fY):
                 raise FailedSimulation(f"Failed at x={Y[:,i]}")
             fY_cf.append(fY)
         fY_cf = np.array(fY_cf)
@@ -190,7 +215,7 @@ class TrustRegionSQPFilter():
             fYs = []
             for i in range(Y.shape[1]):
                 fY = eqc.func(Y[:,i])
-                if np.isnan(fY):
+                if np.isnan(fY) or np.isinf(fY):
                     raise FailedSimulation(f"Failed at x={Y[:,i]}")
                 fYs.append(fY)
             
@@ -204,7 +229,7 @@ class TrustRegionSQPFilter():
             fYs = []
             for i in range(Y.shape[1]):
                 fY = ineqc.func(Y[:,i])
-                if np.isnan(fY):
+                if np.isnan(fY) or np.isinf(fY):
                     raise FailedSimulation(f"Failed at x={Y[:,i]}")
                 fYs.append(fY)
             
@@ -260,7 +285,10 @@ class TrustRegionSQPFilter():
         indices = list(range(v.shape[0]))
         fY_cf_list = [-fy for fy in list(fY_cf)]
         
-        triples = list(zip([-v for v in v_eq],
+        v_eq_list = [v if (np.abs(v) > 1E-10) else 0 for v in v_eq]
+        # v_ineq_list = [v if (np.abs(v) > 1E-10) else 0 for v in v_ineq]
+        
+        triples = list(zip([-v for v in v_eq_list],
                            [-v for v in v_ineq], 
                            fY_cf_list, 
                            indices))
@@ -386,13 +414,23 @@ class TrustRegionSQPFilter():
                 exit_code = 'Minimum radius'
                 break
             
+            print(f"before Y {Y}")
             if need_model_improvement:
                 # TODO: introduce criticality step!!!
                 model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                 model.initialize(y=Y, tr_radius=radius)
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
-                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
+                    
+                    # radius needs to be updated IF it exceeds the bound. 
+                    
+                    # rad = radius*1
+                    # for i in range(Y.shape[0]):
+                    #     if Y[i,0] < self.lb[i]:
+                    #         rad = np.abs()
+                    #     elif Y[i,0] > self.ub[i]
+                    
+                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=rad, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
                     improved_model = sg.model
                     self.models = self.main_run(Y=improved_model.y)
@@ -423,7 +461,7 @@ class TrustRegionSQPFilter():
             iterates['fY'] = self.models.m_cf.model.f
             iterates['v'] = self.violations
             iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
-            iterates['y_curr'] = Y[:,0]
+            iterates['y_curr'] = self.denorm(Y[:,0])
             iterates['filters'] = self.filter_SQP.filters
             iterates['radius'] = radius
             iterates['models'] = self.models
@@ -437,9 +475,8 @@ class TrustRegionSQPFilter():
             
             
             #Inform user
-
             if f_curr is not None:
-                print(f"It. {k}: Best point, x= {y_curr}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
+                print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
             else:
                 print(f"It. {k}: Failed.")
                 radius = self.constants['gamma_1']*radius
@@ -472,7 +509,6 @@ class TrustRegionSQPFilter():
                 
             if self.is_trqp_compatible:
                 fy_next, v_next = self.run_single_simulation(y_next)
-                print(fy_next, v_next)
                 is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next))
 
                 if is_acceptable_in_the_filter:
