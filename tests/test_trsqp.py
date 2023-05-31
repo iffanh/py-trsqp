@@ -13,10 +13,12 @@ def eq1(x):
     return x[0] - x[1] - 1
 
 CONSTANTS = {}
-CONSTANTS["L_threshold"] = 1.005
+CONSTANTS["L_threshold"] = 1.000
+CONSTANTS["kappa_vartheta"] = 0.1
 CONSTANTS["eta_1"] = 0.0001
-CONSTANTS["eta_2"] = 0.1
-CONSTANTS["gamma_1"] = 0.8
+CONSTANTS["eta_2"] = 0.2
+CONSTANTS["gamma_0"] = 0.3
+CONSTANTS["gamma_1"] = 0.7
 CONSTANTS["gamma_2"] = 2.0
 class TRSQPTest(unittest.TestCase):
     
@@ -46,7 +48,7 @@ class TRSQPTest(unittest.TestCase):
                                         lb=[-1])
         
     def test_trsqp_simple(self):
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0], 
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
                                     k=6,
                                     cf=simple,
                                     ub=3.0,
@@ -55,13 +57,13 @@ class TRSQPTest(unittest.TestCase):
                                     ineqcs=[],
                                     opts={'solver': 'ipopt'}, 
                                     constants=CONSTANTS)
-        tr.optimize(max_iter=100)
+        tr.optimize(max_iter=50)
         
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=4)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
         
     def test_trsqp_simple1(self):
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0], 
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
                                     k=6,
                                     cf=simple, 
                                     ub=3.0,
@@ -70,7 +72,7 @@ class TRSQPTest(unittest.TestCase):
                                     ineqcs=[],
                                     opts={'solver': 'ipopt'}, 
                                     constants=CONSTANTS)
-        tr.optimize(max_iter=100)
+        tr.optimize(max_iter=10)
         
         sol0 = 36/28 #analytical solution
         sol1 = 8/28
@@ -79,11 +81,11 @@ class TRSQPTest(unittest.TestCase):
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], sol1, places=4)
         
     def test_trsqp_rosen(self):
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0], 
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
                                     k=6,
                                     cf=rosen, 
-                                    ub=4.0,
-                                    lb=-4.0,
+                                    ub=6.0,
+                                    lb=-6.0,
                                     eqcs=[], 
                                     ineqcs=[],
                                     opts={'solver': 'ipopt'}, 
