@@ -1,7 +1,7 @@
-from .lagrange_polynomial import LagrangePolynomials, LagrangePolynomial
+from .lagrange_polynomial import LagrangePolynomials
 import numpy as np
 import casadi as ca
-from typing import Any, Tuple, List
+from typing import Tuple
 import functools
 
 def _generate_uniform_sample_nsphere(k:int, d:int):
@@ -18,14 +18,16 @@ def _generate_uniform_sample_nsphere(k:int, d:int):
 def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     print(f"Generating uniform points on the n-sphere ...")
     input_symbols = ca.SX.sym('x', d)
-    samples = _generate_uniform_sample_nsphere(k, d)
+    samples = _generate_uniform_sample_nsphere(k-1, d)
     
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=samples, tr_radius=1.0)
-        
+    
+    # Gets too slow for k > 10    
     for i in range(k):
         poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
         curr_lambda = poisedness.max_poisedness()
+
         if curr_lambda < L:
             # enough
             new_y = lpolynomials.y*1
@@ -42,20 +44,28 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         
         # create polynomials
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)     
+        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)    
     
     ## making sure that the point at the origin is exactly at zero
-    tmp = np.inf
-    index = -1
-    for j in range(k):
-        if np.linalg.norm(new_y[:, j]) < tmp:
-            tmp = np.linalg.norm(new_y[:, j])
-            index = j*1
-    new_y[:, index] = np.array([0.0]*d)
+    # tmp = np.inf
+    # index = -1
+    # for j in range(k):
+    #     if np.linalg.norm(new_y[:, j]) < tmp:
+    #         tmp = np.linalg.norm(new_y[:, j])
+    #         index = j*1
     
-    tmp = new_y[:, index]*1
-    new_y[:,index] = new_y[:, 0]
-    new_y[:,0] = tmp
+    # new_y = new_y - new_y[:, [index]]
+    
+    # tmp = new_y[:, index]*1
+    # new_y[:,index] = new_y[:, 0]
+    # new_y[:,0] = tmp
+    
+    if np.linalg.norm(new_y[:,0]) < 1E-8:
+        for j in range(1,k):
+            new_y[:,j] = new_y[:,j]/np.linalg.norm(new_y[:,j])
+    
+    new_y = np.concatenate((np.zeros((d, 1)), new_y), axis=1)
+    
     
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
@@ -91,7 +101,7 @@ class ModelImprovement:
 
             ## TODO: Any ideas on how to circumvent the replacement of the best point?
             pindex = poisedness.index
-            if pindex == 0:     
+            if pindex == 0:
                 tr_radius = lpolynomials.tr_radius*1
                 new_y = lpolynomials.y*1
                     
