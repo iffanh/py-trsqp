@@ -25,6 +25,8 @@ def run(n_max=5, n_cons_max=10):
     tprint(f"", filename=OUTPUT_FILE, restart=True)
     status = dict()
     for problem_name in pycutest.find_problems(constraints="linear"):
+    # if True:
+        # problem_name = "HS41"
         try:
             p = pycutest.import_problem(problem_name)
         except AttributeError:
@@ -73,11 +75,14 @@ def run(n_max=5, n_cons_max=10):
         for i, _x in enumerate(tr.iterates[-1]['y_curr']):
             status[problem_name]["trsqp"]['x'][i] = _x
         status[problem_name]["trsqp"]['f'] = tr.iterates[-1]['fY'][0]
-        status[problem_name]["trsqp"]['is_feasible'] = is_feasible_trqp(eqcs=eqcs, ineqcs=ineqcs, sol=tr.iterates[-1]['y_curr'])
         status[problem_name]["trsqp"]['nfev'] = tr.iterates[-1]['total_number_of_function_calls']
+        status[problem_name]["trsqp"]['is_feasible'] = is_feasible_trqp(eqcs=eqcs, ineqcs=ineqcs, sol=tr.iterates[-1]['y_curr'])
         
-    write_summary_to_txt(filename=OUTPUT_FILE, status=status, title=f"Function evaluation", key='f')
-    write_summary_to_txt(filename=OUTPUT_FILE, status=status, title=f"Number of function evaluation", key='nfev')
+    
+    write_summary_to_txt(filename=OUTPUT_FILE, status=status, title=f"Feasibility", key='is_feasible', _format=bool)    
+    write_summary_to_txt(filename=OUTPUT_FILE, status=status, title=f"Function evaluation", key='f', _format=float)
+    write_summary_to_txt(filename=OUTPUT_FILE, status=status, title=f"Number of function evaluation", key='nfev', _format=int)
+    
     save_json(status, filename=OUTPUT_JSON)
     
     return status

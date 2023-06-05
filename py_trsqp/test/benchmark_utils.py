@@ -27,7 +27,7 @@ def get_constants():
     constants["eta_2"] = 0.1
     constants["mu"] = 0.01
     constants["gamma_vartheta"] = 1E-8 #1E-4 
-    constants["kappa_vartheta"] = 1E-2
+    constants["kappa_vartheta"] = 1E-4
     constants["kappa_radius"] = 0.8
     constants["kappa_mu"] = 10
     constants["kappa_tmd"] = 0.01
@@ -48,7 +48,6 @@ def get_bounds(p):
 ## Build Constraints
 def get_constraints(p, ineq_to_eq=False):
     eq_cons_flags = p.is_eq_cons
-    
     if eq_cons_flags is None:
         return []
     
@@ -60,7 +59,6 @@ def get_constraints(p, ineq_to_eq=False):
 
             if flag:
                 const['type'] = "eq"
-                break
             else:
                 const['type'] = "ineq"
             
@@ -82,6 +80,7 @@ def get_constraints(p, ineq_to_eq=False):
                 const['fun'] = lambda x, i=i: p.cons(x, index=i)
                 const['type'] = "ineq"
                 consts.append(const)    
+    
     return consts
 
 def get_constraints_trsqp(p):
@@ -98,13 +97,19 @@ def get_constraints_trsqp(p):
 
 def run_optimizer(p, consts, bounds, method) -> dict:
     data = dict()
-    res = scipy.optimize.minimize(fun=p.obj, method=method, x0=p.x0, constraints=consts, bounds=bounds)
-    data['x'] = dict()  
-    for i, _x in enumerate(res.x):
-        data['x'][i] = _x
-    data['f'] = res.fun
-    data['nfev'] = res.nfev
-    data['is_feasible'] = is_feasible(consts, res.x)
+    try:
+        res = scipy.optimize.minimize(fun=p.obj, method=method, x0=p.x0, constraints=consts, bounds=bounds)
+        data['x'] = dict()  
+        for i, _x in enumerate(res.x):
+            data['x'][i] = _x
+        data['f'] = res.fun
+        data['nfev'] = res.nfev
+        data['is_feasible'] = is_feasible(consts, res.x)
+    except:
+        data['x'] = None
+        data['f'] = None
+        data['nfev'] = None
+        data['is_feasible'] = None
         
     return data
 
@@ -127,7 +132,7 @@ def is_feasible_trqp(eqcs:List[callable], ineqcs:List[callable], sol, tol=1E-8) 
             return False
     return True
 
-def write_summary_to_txt(filename, status, title:str, key:str):
+def write_summary_to_txt(filename:str, status:dict, title:str, key:str, _format=callable):
     tprint(f"{title}", filename=filename)
     
     for problem_name in status.keys():
@@ -142,7 +147,10 @@ def write_summary_to_txt(filename, status, title:str, key:str):
         txt = f"| {problem_name} \t\t"
         for solver_type in status[problem_name].keys():
             try:
-                txt = txt + f"| {status[problem_name][solver_type][key]:.5e} \t\t"
+                if _format == float:
+                    txt = txt + f"| {_format(status[problem_name][solver_type][key]):5e} \t\t"
+                else:
+                    txt = txt + f"| {_format(status[problem_name][solver_type][key])} \t\t"
             except TypeError:
                 txt = txt + f"| {status[problem_name][solver_type][key]} \t\t"
         txt = txt + f"|"

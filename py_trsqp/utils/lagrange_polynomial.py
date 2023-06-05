@@ -112,8 +112,8 @@ class LagrangePolynomial:
         return -np.abs(self.feval(x))
     
     def cons_f(self, x:np.ndarray, center:np.ndarray) -> float:
-        # return np.linalg.norm(x - center)
-        return (x-center)**2
+        return np.linalg.norm(x - center)
+        # return (x-center)**2
     
     def _define_nonlinear_constraint(self, rad:float, center:np.ndarray) -> NonlinearConstraint:
         return NonlinearConstraint(functools.partial(self.cons_f, center), 0, rad**2)
@@ -127,6 +127,7 @@ class LagrangePolynomial:
         nlinear_bound = self._define_nonlinear_bounds(rad, center)
         self.max_sol = minimize(self._func_to_minimize, x0, method='SLSQP', bounds=nlinear_bound, constraints=[nlinear_constraint])
     
+        # print(f"self.max_sol.message = {self.max_sol.message}, sol = {self.max_sol.x}")
         if not self.max_sol.success:
             # print(f"self.max_sol.success = {self.max_sol.success}")
             # print(f"self.max_sol.message = {self.max_sol.message}")
