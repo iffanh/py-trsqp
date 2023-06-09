@@ -286,7 +286,7 @@ class TrustRegionSQPFilter():
         fY_cf_list = [-fy for fy in list(fY_cf)]
         
         v_eq_list = [v if (np.abs(v) > 1E-8) else 0 for v in v_eq]
-        v_ineq_list = [v if (np.abs(v) > 1E-8) else 0 for v in v_ineq]
+        v_ineq_list = [v if (v > 1E-8) else 0 for v in v_ineq]
         
         ## TODO: Ordering can be sensitive to very small error 
         triples = list(zip([-v for v in v_eq_list],
@@ -363,7 +363,7 @@ class TrustRegionSQPFilter():
             if -fY > v_ineq:
                 v_ineq = -fY
         
-        v = ca.fmax(0, ca.fmax(v_eq, -v_ineq))
+        v = ca.fmax(0, ca.fmax(v_eq, v_ineq))
         return fy, v
 
     def solve_TRQP(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
@@ -395,8 +395,6 @@ class TrustRegionSQPFilter():
             new_Y = models.m_cf.model.y*1
             new_Y[:, worst_index] = new_Y[:, 0]
             new_Y[:, 0] = y_next
-            
-            new_Y = new_Y[:, indices_1]
             
             ## TODO: how to replace points when it's an improvement in the objective but not in the violation
             ## accompanied by model improvement
@@ -473,6 +471,7 @@ class TrustRegionSQPFilter():
             iterates['radius'] = radius
             iterates['models'] = self.models
             iterates['total_number_of_function_calls'] = self.sm.cf.number_of_function_calls
+            iterates['it_code'] = it_code
             if k > 0:
                 iterates['number_of_function_calls'] = iterates['total_number_of_function_calls'] - self.iterates[k-1]['total_number_of_function_calls'] 
             else:

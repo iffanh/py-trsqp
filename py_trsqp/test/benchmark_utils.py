@@ -26,7 +26,7 @@ def get_constants():
     constants["eta_1"] = 0.001
     constants["eta_2"] = 0.1
     constants["mu"] = 0.01
-    constants["gamma_vartheta"] = 1E-8 #1E-4 
+    constants["gamma_vartheta"] = 1E-2 #1E-4 
     constants["kappa_vartheta"] = 1E-4
     constants["kappa_radius"] = 0.8
     constants["kappa_mu"] = 10
