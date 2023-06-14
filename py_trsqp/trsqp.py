@@ -31,7 +31,7 @@ class TrustRegionSQPFilter():
                 tmp = constants["gamma_2"]
             except:
                 constants["gamma_2"] = 1.2 
-                
+            
             try:
                 tmp = constants["eta_1"]
             except:
@@ -170,7 +170,11 @@ class TrustRegionSQPFilter():
         x0 = self.norm(x0)
         self.ub = self.norm(np.array(self.ub))
         self.lb = self.norm(np.array(self.lb))
-        self.dataset = x0[:, np.newaxis] + constants['init_radius']*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
+        
+        # TODO:radius needs to be updated IF it exceeds the bound.    
+        rad = constants['init_radius']*1            
+        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
+        
         
         ## Transform functions
         cf = self.transform_functions(cf)
@@ -294,6 +298,7 @@ class TrustRegionSQPFilter():
                            fY_cf_list, 
                            indices))
         
+        
         triples.sort(key=lambda x:(x[0], x[1], x[2]), reverse=True)
         sorted_index = [ind[3] for ind in triples]
         
@@ -357,7 +362,7 @@ class TrustRegionSQPFilter():
             if ca.fabs(fY) > v_eq:
                 v_eq = ca.fabs(fY) 
         
-        v_ineq = 0
+        v_ineq = 0 ## v_ineq >= 0
         for eqc in self.sm.ineqcs.ineqcs:
             fY = eqc.func(y)
             if -fY > v_ineq:
@@ -396,6 +401,8 @@ class TrustRegionSQPFilter():
             new_Y[:, worst_index] = new_Y[:, 0]
             new_Y[:, 0] = y_next
             
+            # new_Y = new_Y[:, indices_1]
+            
             ## TODO: how to replace points when it's an improvement in the objective but not in the violation
             ## accompanied by model improvement
         return new_Y
@@ -418,7 +425,7 @@ class TrustRegionSQPFilter():
                 print(f"Radius too small.")
                 exit_code = 'Minimum radius'
                 break
-            
+                            
             if need_model_improvement:
                 # TODO: introduce criticality step!!!
                 model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
@@ -432,7 +439,7 @@ class TrustRegionSQPFilter():
                         if abs(Y[i,0] - self.lb[i]) < rad:
                             rad = np.abs(Y[i,0] - self.lb[i])
                         elif abs(Y[i,0] - self.ub[i]) < rad:
-                            rad = np.abs(Y[i,0] - self.lb[i])
+                            rad = np.abs(Y[i,0] - self.ub[i])
                             
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=rad, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
@@ -471,13 +478,13 @@ class TrustRegionSQPFilter():
             iterates['radius'] = radius
             iterates['models'] = self.models
             iterates['total_number_of_function_calls'] = self.sm.cf.number_of_function_calls
-            iterates['it_code'] = it_code
             if k > 0:
                 iterates['number_of_function_calls'] = iterates['total_number_of_function_calls'] - self.iterates[k-1]['total_number_of_function_calls'] 
             else:
                 iterates['number_of_function_calls'] = iterates['total_number_of_function_calls']*1
             
             neval = iterates['number_of_function_calls']
+            iterates["it_code"] = it_code
             
             
             #Inform user
