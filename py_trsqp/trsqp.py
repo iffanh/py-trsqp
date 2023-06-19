@@ -433,15 +433,15 @@ class TrustRegionSQPFilter():
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
                     
-                    # radius needs to be updated IF it exceeds the bound.    
-                    rad = radius*1
-                    for i in range(Y.shape[0]):
-                        if abs(Y[i,0] - self.lb[i]) < rad:
-                            rad = np.abs(Y[i,0] - self.lb[i])
-                        elif abs(Y[i,0] - self.ub[i]) < rad:
-                            rad = np.abs(Y[i,0] - self.ub[i])
+                    # # radius needs to be updated IF it exceeds the bound.    
+                    # rad = radius*1
+                    # for i in range(Y.shape[0]):
+                    #     if abs(Y[i,0] - self.lb[i]) < rad:
+                    #         rad = np.abs(Y[i,0] - self.lb[i])
+                    #     elif abs(Y[i,0] - self.ub[i]) < rad:
+                    #         rad = np.abs(Y[i,0] - self.ub[i])
                             
-                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=rad, L=self.constants['L_threshold'])
+                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
                     improved_model = sg.model
                     self.models = self.main_run(Y=improved_model.y)
