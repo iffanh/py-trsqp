@@ -314,12 +314,13 @@ class TrustRegionSQPFilter():
         
         return Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq
     
-    def main_run(self, Y:np.ndarray):
+    def main_run(self, Y:np.ndarray, reorder:bool=True):
 
         try:
             fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
             v, v_eq, v_ineq = self.calculate_violation(Y=Y, fYs_eq=fYs_eq, fYs_ineq=fYs_ineq)
-            Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq)
+            if reorder:
+                Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq = self.reorder_samples(Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq)
             fail_flag = False
         except FailedSimulation as e:
             fY_cf = None
@@ -450,7 +451,7 @@ class TrustRegionSQPFilter():
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
                     improved_model = sg.model
-                    self.models = self.main_run(Y=improved_model.y)
+                    self.models = self.main_run(Y=improved_model.y, reorder=False)
                     Y = self.models.m_cf.model.y
 
                 else:
