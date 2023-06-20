@@ -355,16 +355,22 @@ class TrustRegionSQPFilter():
 
     def run_single_simulation(self, y:np.ndarray) -> Tuple[float, float]:
         fy = self.sm.cf.func(y)
-        
+        if np.isnan(fy) or np.isinf(fy):
+            raise FailedSimulation(f"Failed at x={y}")
+            
         v_eq = 0
         for eqc in self.sm.eqcs.eqcs:
             fY = eqc.func(y) 
+            if np.isnan(fy) or np.isinf(fy):
+                raise FailedSimulation(f"Failed at x={y}")
             if ca.fabs(fY) > v_eq:
                 v_eq = ca.fabs(fY) 
         
         v_ineq = 0 ## v_ineq >= 0
         for eqc in self.sm.ineqcs.ineqcs:
             fY = eqc.func(y)
+            if np.isnan(fy) or np.isinf(fy):
+                raise FailedSimulation(f"Failed at x={y}")
             if -fY > v_ineq:
                 v_ineq = -fY
         
@@ -521,10 +527,13 @@ class TrustRegionSQPFilter():
             self.iterates.append(iterates)
                 
             if self.is_trqp_compatible:
-                fy_next, v_next = self.run_single_simulation(y_next)
+                try:
+                    fy_next, v_next = self.run_single_simulation(y_next)
+                    is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next))
+                except FailedSimulation as e:
+                    is_acceptable_in_the_filter = False
                 # print(f"y_next, fy_next, v_next = {self.denorm(y_next)}, {fy_next}, {v_next}")
-                is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next))
-
+                
                 if is_acceptable_in_the_filter:
                     v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                     
