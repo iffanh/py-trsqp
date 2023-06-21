@@ -314,7 +314,7 @@ class TrustRegionSQPFilter():
         
         return Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq
     
-    def main_run(self, Y:np.ndarray, reorder:bool=True):
+    def main_run(self, Y:np.ndarray, reorder:bool=False):
 
         try:
             fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
@@ -451,7 +451,7 @@ class TrustRegionSQPFilter():
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
                     improved_model = sg.model
-                    self.models = self.main_run(Y=improved_model.y, reorder=False)
+                    self.models = self.main_run(Y=improved_model.y)
                     Y = self.models.m_cf.model.y
 
                 else:
@@ -589,6 +589,11 @@ class TrustRegionSQPFilter():
         
             if k == max_iter - 1:
                 exit_code = 'Maximum iteration'
+        
+        try:
+            tmp = exit_code
+        except:
+            exit_code = "Unknown"
             
         self.termination_status = exit_code
         print(f"Termination code : {exit_code}")
