@@ -7,12 +7,11 @@ class FilterSQP():
         self.filters = []
         
         self.constants = constants
-    def add_to_filter(self, coordinate:Tuple[float, float]) -> bool:
+    def add_to_filter(self, coordinate:Tuple[float, float], to_add:bool=True) -> bool:
         
         is_acceptable = False
         self.filters.sort(key=lambda x: x[1])
         if len(self.filters) == 0:
-            print("Initialization condition")
             self.filters.append(coordinate)
             is_acceptable = True
         
@@ -26,16 +25,15 @@ class FilterSQP():
                 cond = cond and _cond
             if cond:
                 is_acceptable = True
-                    
-            if is_acceptable:
-                curr_filter = [coordinate]
-                for coord in self.filters:
-                    if coord[1] >= (1-g)*coordinate[1] and coord[0] >= coordinate[0] - g*coord[1]:
-                        # curr_filter.append(coordinate)
-                        pass
-                    else:
-                        curr_filter.append(coord)
-                self.filters = curr_filter
+            if to_add:
+                if is_acceptable:
+                    curr_filter = [coordinate]
+                    for coord in self.filters:
+                        if coord[1] >= (1-g)*coordinate[1] and coord[0] >= coordinate[0] - g*coord[1]:
+                            pass
+                        else:
+                            curr_filter.append(coord)
+                    self.filters = curr_filter
         self.filters.sort(key=lambda x: x[1])
         
         return is_acceptable

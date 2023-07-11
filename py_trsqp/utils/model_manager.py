@@ -79,24 +79,28 @@ class InequalityConstraintModel():
         return f"InequalityConstraintModel(index={self.index}, model = {self.model.model_polynomial.symbol})"
 
 class ViolationModel():
-    def __init__(self, input_symbols, m_eqcs:EqualityConstraintModels, m_ineqcs:InequalityConstraintModels, Y:np.ndarray) -> None:
+    def __init__(self, input_symbols, m_eqcs:EqualityConstraintModels, m_ineqcs:InequalityConstraintModels, Y:np.ndarray, fail_flag:bool=False) -> None:
         
-        # create violation function Eq 15.5.3
-        v = 0.0
-        for m in m_eqcs.models:
-            v = ca.fmax(v, ca.fabs(m.model.model_polynomial.symbol))
     
-        for m in m_ineqcs.models:
-             v = ca.fmax(v, ca.fmax(0, -m.model.model_polynomial.symbol)) # TODO:ADHOC
-            
-        self.symbol = v
-        self.feval = ca.Function('Violation', [input_symbols], [self.symbol])
+        if fail_flag:
+            self.violations = np.array([None])
+        else:
+            # create violation function Eq 15.5.3
+            v = 0.0
+            for m in m_eqcs.models:
+                v = ca.fmax(v, ca.fabs(m.model.model_polynomial.symbol))
         
-        self.violations = []
-        for i in range(Y.shape[1]):
-            self.violations.append(self.feval(Y[:,i]).full()[0][0])
+            for m in m_ineqcs.models:
+                v = ca.fmax(v, ca.fmax(0, -m.model.model_polynomial.symbol)) # TODO:ADHOC
+                
+            self.symbol = v
+            self.feval = ca.Function('Violation', [input_symbols], [self.symbol])
             
-        self.violations = np.array(self.violations)
+            self.violations = []
+            for i in range(Y.shape[1]):
+                self.violations.append(self.feval(Y[:,i]).full()[0][0])
+                
+            self.violations = np.array(self.violations)
 
 class ModelManager():
     """

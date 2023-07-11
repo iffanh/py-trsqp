@@ -66,8 +66,6 @@ class LagrangePolynomialsTest(unittest.TestCase):
                                     pdegree=2)
         l.initialize(y=YLARGE, f=None, sort_type='function')
     
-        
-        
     def test_polynomial_basis(self):
         
         basis = self.l.polynomial_basis
