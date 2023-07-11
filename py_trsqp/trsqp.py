@@ -13,7 +13,7 @@ from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
     
-    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "penalty"}) -> None:
+    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt"}) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -314,7 +314,7 @@ class TrustRegionSQPFilter():
         
         return Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq
     
-    def main_run(self, Y:np.ndarray, reorder:bool=False):
+    def main_run(self, Y:np.ndarray, reorder:bool=True):
 
         try:
             fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
