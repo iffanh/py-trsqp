@@ -139,6 +139,9 @@ class TrustRegionSQPFilter():
             return n_eqcs, n_ineqcs
 
         def _check_input(ub, lb, x0) -> Tuple[List, List]:
+            
+            print(ub, lb)
+            
             # check typing
             if (type(ub) is list) and (type(lb) is list):
                 if not (len(ub) == len(lb)):
@@ -154,6 +157,8 @@ class TrustRegionSQPFilter():
             else:
                 # should not come here
                 raise IncorrectInputException(f"Type of ub and lb must be either list or float. Got type(ub) = {type(ub)} and type(lb) = {type(lb)}")
+            
+            print(ub, lb)
             
             return ub, lb
         
