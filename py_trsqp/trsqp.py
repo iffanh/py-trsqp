@@ -195,6 +195,10 @@ class TrustRegionSQPFilter():
     
     def norm(self, x:np.ndarray):
         a = copy.copy(x)
+        print(a)
+        print(x)
+        print(self.xn)
+        print(self.zero_flags)
         a[~self.zero_flags] = x[~self.zero_flags]/np.abs(self.xn[~self.zero_flags])
         return a
     
