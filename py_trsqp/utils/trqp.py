@@ -9,12 +9,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class TRQP():
-    def __init__(self, models:ModelManager, ub:list, lb:list, radius:float, solver:str="penalty") -> None:
+    def __init__(self, models:ModelManager, ub:list, lb:list, alcs:list, radius:float, solver:str="penalty") -> None:
         
         if solver == "ipopt":
-            self.sol, self.radius, self.is_compatible = self.invoke_composite_step(models, ub, lb, radius)
+            self.sol, self.radius, self.is_compatible = self.invoke_composite_step(models, ub, lb, alcs, radius)
         elif solver == "penalty":
-            self.sol, self.radius, self.is_compatible = self.invoke_penalty_step(models, ub, lb, radius)
+            self.sol, self.radius, self.is_compatible = self.invoke_penalty_step(models, ub, lb, alcs, radius)
         
     def invoke_penalty_step(self, models:ModelManager, ub:float, lb:float, radius:float):
         from scipy.optimize import minimize, Bounds
@@ -97,7 +97,7 @@ class TRQP():
             
         return sol, radius
 
-    def invoke_composite_step(self, models:ModelManager, ub:list, lb:list, radius:float) -> Tuple[np.ndarray, float, bool]:
+    def invoke_composite_step(self, models:ModelManager, ub:list, lb:list, alcs:list, radius:float) -> Tuple[np.ndarray, float, bool]:
         ## construct TQRP problem (page 722, Chapter 15: Sequential Quadratic Programming)
         data = models.m_cf.model.y
         center = data[:,0]
@@ -111,6 +111,20 @@ class TRQP():
         lbg = []
         
         g = []
+        
+        
+        # Algebraic constraints
+        for alc in alcs:
+            if alc["type"] == "equality":
+                al = ca.sum1(ca.times(input_symbols, alc["A"]))
+                g.append(al)
+                ubg.append(alc["b"])
+                lbg.append(alc["b"])
+            elif alc["type"] == "inequality":
+                al = ca.sum1(ca.times(input_symbols, alc["A"]))
+                g.append(al)
+                ubg.append(ca.inf)
+                lbg.append(alc["b"])
         
         # Equality constraints
         if len(models.m_eqcs.models) == 0:
@@ -171,18 +185,35 @@ class TRQP():
                 if solver.stats()['return_status'] == "Infeasible_Problem_Detected":
                     raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
         except TRQPIncompatible:
-            sol, radius = self.invoke_restoration_step(models, ub, lb, radius)
+            sol, radius = self.invoke_restoration_step(models, ub, lb, alcs, radius)
             is_compatible = False
             
         return sol['x'], radius, is_compatible
 
-    def invoke_restoration_step(self, models:ModelManager, ub:list, lb:list, radius:float):
+    def invoke_restoration_step(self, models:ModelManager, ub:list, lb:list, alcs:list, radius:float):
         
         print(f"Invoke restoration step")
         
         input_symbols = models.input_symbols
         data = models.m_cf.model.y
         center = data[:,0]
+        
+        ubg = []
+        lbg = []
+        
+        g = []
+        # Algebraic constraints
+        for alc in alcs:
+            if alc["type"] == "equality":
+                al = ca.sum1(ca.times(input_symbols, alc["A"]))
+                g.append(al)
+                ubg.append(alc["b"])
+                lbg.append(alc["b"])
+            elif alc["type"] == "inequality":
+                al = ca.sum1(ca.times(input_symbols, alc["A"]))
+                g.append(al)
+                ubg.append(ca.inf)
+                lbg.append(alc["b"])
             
         # tr radius as input bound      
         ubx = np.min((center + radius, ub), axis=0) 
@@ -191,14 +222,15 @@ class TRQP():
         
         nlp = {
             'x': input_symbols,
-            'f': models.m_viol.symbol
+            'f': models.m_viol.symbol,
+            'g': ca.vertcat(*g)
         }
         
         opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
         
         solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
         # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
-        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx)
+        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
         if solver.stats()['success']:
             pass
         else:

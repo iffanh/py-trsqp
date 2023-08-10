@@ -13,7 +13,7 @@ from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
     
-    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt"}) -> None:
+    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, alcs:list=[], eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt"}) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -138,9 +138,37 @@ class TrustRegionSQPFilter():
             
             return n_eqcs, n_ineqcs
 
-        def _check_input(ub, lb, x0) -> Tuple[List, List]:
+        def _check_algebraic_constraints(x0:list, alcs:list):
             
-            print(ub, lb)
+            # alcs = [{"type": "equality", 
+            #           "A": [1, 1, ..., 1], 
+            #           "b": 1}] # Ax = b
+            
+            # alcs = [{"type": "inequality", 
+            #           "A": [1, 1, ..., 1], 
+            #           "b": 1}] # Ax >= b
+            
+            for alc in alcs:
+                if alc["type"] == "equality":
+                    pass
+                elif alc["type"] == "inequality":
+                    pass
+                else:
+                    raise IncorrectInputException(f"Algebraic constraint type must be 'equality' or 'inequality'")
+                
+                if len(alc["A"]) == len(x0):
+                    pass
+                else:
+                    raise IncorrectInputException(f"Algebraic constraint coefficients 'A' must have the same length as the input")
+                
+                if type(alc["b"]) == float:
+                    pass
+                else:
+                    raise IncorrectInputException(f"Algebraic constraint 'b' must be a float")
+            
+            return len(alcs)
+        
+        def _check_input(ub, lb, x0) -> Tuple[List, List]:
             
             # check typing
             if (type(ub) is list) and (type(lb) is list):
@@ -158,13 +186,12 @@ class TrustRegionSQPFilter():
                 # should not come here
                 raise IncorrectInputException(f"Type of ub and lb must be either list or float. Got type(ub) = {type(ub)} and type(lb) = {type(lb)}")
             
-            print(ub, lb)
-            
             return ub, lb
         
         self.opts = opts
         self.constants = _check_constants(constants=constants)
         self.n_eqcs, self.n_ineqcs = _check_constraints(eqcs=eqcs, ineqcs=ineqcs)
+        self.n_alcs = _check_algebraic_constraints(x0=x0, alcs=alcs)
         self.ub, self.lb = _check_input(ub=ub, lb=lb, x0=x0)
         
         ## Transform input and bounds
@@ -181,6 +208,9 @@ class TrustRegionSQPFilter():
         self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
         
         
+        ## Save algebraic constraints
+        self.alcs = alcs
+        
         ## Transform functions
         cf = self.transform_functions(cf)
         
@@ -195,10 +225,6 @@ class TrustRegionSQPFilter():
     
     def norm(self, x:np.ndarray):
         a = copy.copy(x)
-        print(a)
-        print(x)
-        print(self.xn)
-        print(self.zero_flags)
         a[~self.zero_flags] = x[~self.zero_flags]/np.abs(self.xn[~self.zero_flags])
         return a
     
@@ -389,7 +415,7 @@ class TrustRegionSQPFilter():
 
     def solve_TRQP(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
         solver = self.opts["solver"]
-        trqp_mod = TRQP(models=models, ub=self.ub, lb=self.lb, radius=radius, solver=solver)
+        trqp_mod = TRQP(models=models, ub=self.ub, lb=self.lb, alcs=self.alcs, radius=radius, solver=solver)
         sol = trqp_mod.sol.full()[:,0]
         return sol, trqp_mod.radius, trqp_mod.is_compatible
     
@@ -449,14 +475,6 @@ class TrustRegionSQPFilter():
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
                     
-                    # # radius needs to be updated IF it exceeds the bound.    
-                    # rad = radius*1
-                    # for i in range(Y.shape[0]):
-                    #     if abs(Y[i,0] - self.lb[i]) < rad:
-                    #         rad = np.abs(Y[i,0] - self.lb[i])
-                    #     elif abs(Y[i,0] - self.ub[i]) < rad:
-                    #         rad = np.abs(Y[i,0] - self.ub[i])
-                            
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()        
                     improved_model = sg.model

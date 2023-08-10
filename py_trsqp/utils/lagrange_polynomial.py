@@ -173,6 +173,7 @@ class LagrangePolynomials:
         self.input_symbols = input_symbols
         
     def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'minimum', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
+    # def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'frobenius', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
         """ This class should be able to generate lagrange polynomials given the samples
 
         Args:
