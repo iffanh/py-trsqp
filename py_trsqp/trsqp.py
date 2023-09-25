@@ -416,7 +416,8 @@ class TrustRegionSQPFilter():
 
     def optimize(self, max_iter=15):
         
-        need_model_improvement = False
+        need_model_improvement = True
+        need_rebuild = False
         it_code = -1
         neval = 0
         
@@ -427,17 +428,26 @@ class TrustRegionSQPFilter():
 
         self.iterates = []
         for k in range(max_iter):
-
             if radius < self.constants["stopping_radius"]:
                 print(f"Radius too small.")
                 exit_code = 'Minimum radius'
                 break
-                            
-            if need_model_improvement:
+            
+            if need_rebuild:
+                
+                center = Y[:, [0]]
+                new_y = center + (Y-center)*radius
+                self.models = self.main_run(Y=new_y)
+                Y = self.models.m_cf.model.y*1
+                
+                need_rebuild = False
+                          
+            elif need_model_improvement:
                 # TODO: introduce criticality step!!!
                 model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                 model.initialize(y=Y, tr_radius=radius)
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
+                
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
                     
                     # # radius needs to be updated IF it exceeds the bound.    
@@ -449,7 +459,7 @@ class TrustRegionSQPFilter():
                     #         rad = np.abs(Y[i,0] - self.ub[i])
                             
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
-                    sg.improve_geometry()        
+                    sg.improve_geometry()     
                     improved_model = sg.model
                     self.models = self.main_run(Y=improved_model.y)
                     Y = self.models.m_cf.model.y
@@ -501,6 +511,7 @@ class TrustRegionSQPFilter():
                 print(f"It. {k}: Failed.")
                 radius = self.constants['gamma_1']*radius
                 need_model_improvement = True
+                need_rebuild = True
                 it_code = 10
                 self.iterates.append(iterates)
                 continue
