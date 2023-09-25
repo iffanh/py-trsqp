@@ -530,7 +530,7 @@ class TrustRegionSQPFilter():
             if self.is_trqp_compatible:
                 try:
                     fy_next, v_next = self.run_single_simulation(y_next)
-                    is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next))
+                    is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next), to_add=False)
                 except FailedSimulation as e:
                     is_acceptable_in_the_filter = False
                 # print(f"y_next, fy_next, v_next = {self.denorm(y_next)}, {fy_next}, {v_next}")
