@@ -309,6 +309,9 @@ class LagrangePolynomials:
         if float(Lambda) == 0:
             raise PoisednessIsZeroException(f"Poisedness (Lambda) is 0. Something is wrong.")
         
+        if float(Lambda) < 1:
+            return Poisedness(index, max_sols, [100000 for l in Lambdas])
+        
         return Poisedness(index, max_sols, Lambdas)
     
     def _get_coefficients_from_expression(self, expression, input_symbols, degree:int=2) -> Tuple[np.ndarray, np.ndarray]:
