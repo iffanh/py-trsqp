@@ -36,8 +36,13 @@ class SetGeometry():
 
 class CostFunctionModel():
     def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray) -> None:
-        self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(y=Y, f=fY, tr_radius=None)
+        
+        if Y.shape[1] <= Y.shape[0]:
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=1)
+            self.model.initialize(y=Y, f=fY, tr_radius=None)    
+        else: 
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            self.model.initialize(y=Y, f=fY, tr_radius=None)
 
     def __str__(self) -> str:
         return f"CostFunctionModel(model = {self.model.model_polynomial.symbol})"
@@ -53,8 +58,12 @@ class EqualityConstraintModels():
 
 class EqualityConstraintModel():
     def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray, index:int) -> None:
-        self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(y=Y, f=fY, tr_radius=None)
+        if Y.shape[1] <= Y.shape[0]:
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=1)
+            self.model.initialize(y=Y, f=fY, tr_radius=None)    
+        else: 
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            self.model.initialize(y=Y, f=fY, tr_radius=None)
         self.index = index
 
     def __str__(self) -> str:
@@ -71,8 +80,12 @@ class InequalityConstraintModels():
 
 class InequalityConstraintModel():
     def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray, index:int) -> None:
-        self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        self.model.initialize(y=Y, f=fY, tr_radius=None)
+        if Y.shape[1] <= Y.shape[0]:
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=1)
+            self.model.initialize(y=Y, f=fY, tr_radius=None)    
+        else: 
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            self.model.initialize(y=Y, f=fY, tr_radius=None)
         self.index = index
 
     def __str__(self) -> str:

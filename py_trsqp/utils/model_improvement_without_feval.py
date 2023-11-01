@@ -19,14 +19,12 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     print(f"Generating uniform points on the {d}-sphere ...")
     input_symbols = ca.SX.sym('x', d)
     samples = _generate_uniform_sample_nsphere(k-1, d)
-    
-    print(f"samples = {samples}")
+
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=samples, tr_radius=1.0)
     
-    print(f"lpolynomials.y = {lpolynomials.y}")
-    
     # Gets too slow for k > 10    
+    
     for i in range(k):
         poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
         curr_lambda = poisedness.max_poisedness()
@@ -48,10 +46,9 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         # create polynomials
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
         lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)    
-    
-    print(f"k = {k}, new_y = {new_y}")
+
     if np.linalg.norm(new_y[:,0]) < 1E-8:
-        for j in range(1,k):
+        for j in range(1,k-1):
             new_y[:,j] = new_y[:,j]/np.linalg.norm(new_y[:,j])
     
     new_y = np.concatenate((np.zeros((d, 1)), new_y), axis=1)
@@ -95,12 +92,11 @@ class ModelImprovement:
                 tr_radius = lpolynomials.tr_radius*1
                 new_y = lpolynomials.y*1
                 
-                print("heh", new_y, new_y.shape)
-                # surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
-                # new_y = center[:, np.newaxis] + surface_points*tr_radius
+                surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                new_y = center[:, np.newaxis] + surface_points*tr_radius
+                # new_y = np.concatenate([center[:, np.newaxis], (center + rad*np.ones(center.shape))[:, np.newaxis]], axis=1)
                 
-                new_y = np.concatenate([center[:, np.newaxis], rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
-                lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
                 lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
                 best_polynomial = lpolynomials
@@ -113,8 +109,8 @@ class ModelImprovement:
 
                 # main loop
                 if Lambda > L:
-                    new_point = poisedness.point_to_max_poisedness()
                     
+                    new_point = poisedness.point_to_max_poisedness()
                     is_new_point_a_duplicate = False
                     for i in range(lpolynomials.y.shape[1]):
                         if (new_point == lpolynomials.y[:,i]).all():
@@ -124,10 +120,10 @@ class ModelImprovement:
                         tr_radius = lpolynomials.tr_radius*1
                         new_y = lpolynomials.y*1
 
-                        # surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
-                        # new_y = center[:, np.newaxis] + surface_points*tr_radius
-                        new_y = np.concatenate([center[:, np.newaxis], rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
-                        lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                        surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                        new_y = center[:, np.newaxis] + surface_points*tr_radius
+                        # new_y = np.concatenate([center[:, np.newaxis], center + rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
+                        lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
                         lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
                         poisedness = lpolynomials.poisedness(rad=rad, center=center)
@@ -145,7 +141,7 @@ class ModelImprovement:
                     new_y[:, pindex] = new_point
                     
                     # create polynomials
-                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
                     lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)       
                     
                     # save polynomial with the smallest poisedness
@@ -164,11 +160,11 @@ class ModelImprovement:
                     ## TODO: Maybe algorithm 6.2
                     tr_radius = lpolynomials.tr_radius*1
                     new_y = lpolynomials.y*1
-                
-                    # surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
-                    # new_y = center[:, np.newaxis] + surface_points*tr_radius
-                    new_y = np.concatenate([center[:, np.newaxis], rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
-                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+
+                    surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                    new_y = center[:, np.newaxis] + surface_points*tr_radius
+                    # new_y = np.concatenate([center[:, np.newaxis], center + rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
+                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
                     lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
                     best_polynomial = lpolynomials

@@ -113,7 +113,6 @@ class LagrangePolynomial:
     
     def cons_f(self, x:np.ndarray, center:np.ndarray) -> float:
         return np.linalg.norm(x - center)
-        # return (x-center)**2
     
     def _define_nonlinear_constraint(self, rad:float, center:np.ndarray) -> NonlinearConstraint:
         return NonlinearConstraint(functools.partial(self.cons_f, center), 0, rad**2)
@@ -123,17 +122,21 @@ class LagrangePolynomial:
         
     def _find_max_given_boundary(self, x0:np.ndarray, rad:float, center:np.ndarray) -> Tuple[Any, float]:
         
-        nlinear_constraint = self._define_nonlinear_constraint(rad, center)
-        nlinear_bound = self._define_nonlinear_bounds(rad, center)
-        self.max_sol = minimize(self._func_to_minimize, x0, method='SLSQP', bounds=nlinear_bound, constraints=[nlinear_constraint])
-    
-        # print(f"self.max_sol.message = {self.max_sol.message}, sol = {self.max_sol.x}")
-        if not self.max_sol.success:
-            # print(f"self.max_sol.success = {self.max_sol.success}")
-            # print(f"self.max_sol.message = {self.max_sol.message}")
-            # raise Exception(f"Poisedness calculation is wrong: {self.max_sol.message}")
-            pass
-                
+        self.success = False
+        iteration = 1
+        while not self.success and iteration < 5:
+            nlinear_constraint = self._define_nonlinear_constraint(rad, center)
+            nlinear_bound = self._define_nonlinear_bounds(rad, center)
+            self.max_sol = minimize(self._func_to_minimize, x0, method='SLSQP', bounds=nlinear_bound, constraints=[nlinear_constraint])
+            # self.max_sol = minimize(self._func_to_minimize, x0, method='SLSQP', constraints=[nlinear_constraint])
+            # print(f"self.max_sol.message = {self.max_sol.message}, sol = {self.max_sol.x}")
+            if not self.max_sol.success:
+                x0 = x0 + np.random.rand()*rad/100
+            else:
+                self.success = True
+            
+            iteration = iteration + 1    
+
         self.min_lambda = self.feval(self.max_sol.x)
         
         return self.max_sol.x, self.min_lambda
@@ -272,17 +275,6 @@ class LagrangePolynomials:
             float: Minimum poisedness of the given interpolation set
         """
         
-        ## rad and center should only be used if poisedness is done "deliberately" in Ball(center, rad)
-        ## in most cases rad and center should be default to None and therefore the rad and center
-        ## will be calculated directly from the lagrange polynomial's sample set
-        ## only in special cases that rad and center are specified, like in the case of Algorithm 6.3
-        # if rad is None:
-        #     rad = self.sample_set.ball.rad
-        # if center is None:
-        #     center = self.sample_set.ball.center
-        
-        # self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.y, is_gen=True)
-        
         return self._get_poisedness(self.lagrange_polynomials, rad, center)
         
     def _get_poisedness(self, lagrange_polynomials:List[LagrangePolynomial], rad:float, center:np.ndarray) -> Poisedness:
@@ -297,9 +289,15 @@ class LagrangePolynomials:
         for lp in lagrange_polynomials:
             max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)          
             max_sols.append(max_sol)
-            Lambdas.append(np.abs(feval))
             
-            if np.abs(feval) > Lambda:
+            if np.abs(feval) < 1:
+                feval = 100
+            else:
+                feval = np.abs(feval)
+            
+            Lambdas.append(feval)
+            
+            if feval > Lambda:
                 
                 Lambda = np.abs(feval)
                 index = i
@@ -308,9 +306,6 @@ class LagrangePolynomials:
         
         if float(Lambda) == 0:
             raise PoisednessIsZeroException(f"Poisedness (Lambda) is 0. Something is wrong.")
-        
-        if float(Lambda) < 1:
-            return Poisedness(index, max_sols, [100000 for l in Lambdas])
         
         return Poisedness(index, max_sols, Lambdas)
     
