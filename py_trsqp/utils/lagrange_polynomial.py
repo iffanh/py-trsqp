@@ -290,10 +290,10 @@ class LagrangePolynomials:
             max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)          
             max_sols.append(max_sol)
             
-            if np.abs(feval) < 1:
-                feval = np.inf
-            else:
-                feval = np.abs(feval)
+            # if np.abs(feval) < 1:
+            #     feval = np.inf
+            # else:
+            #     feval = np.abs(feval)
             
             Lambdas.append(feval)
             
