@@ -291,7 +291,7 @@ class LagrangePolynomials:
             max_sols.append(max_sol)
             
             if np.abs(feval) < 1:
-                feval = 100
+                feval = np.inf
             else:
                 feval = np.abs(feval)
             

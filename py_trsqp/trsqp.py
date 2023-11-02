@@ -385,33 +385,6 @@ class TrustRegionSQPFilter():
         return sol, trqp_mod.radius, trqp_mod.is_compatible
     
     def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, fy_next, v_next, radius:float, replace_type:str) -> np.ndarray:
-        
-        # if replace_type == 'improve_model':
-        #     # Change point with largest poisedness
-        #     poisedness = models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
-        #     # index to replace -> poisedness.index
-        #     new_Y = Y*1
-        #     new_Y[:, poisedness.index] = y_next
-            
-        # elif replace_type == 'worst_point': 
-        #     indices = list(range(self.violations.shape[0]))
-            
-        #     worst_f = models.m_cf.model.f.argsort()
-        #     worst_v = self.violations.argsort()
-            
-        #     tuples = list(zip(worst_v, worst_f, indices))
-        #     tuples.sort(key=lambda x:(x[0], x[1]), reverse=False)
-        #     indices_1 = [ind[2] for ind in tuples]
-        #     worst_index = indices_1[-1]
-
-        #     new_Y = models.m_cf.model.y*1
-        #     new_Y[:, worst_index] = new_Y[:, 0]
-        #     new_Y[:, 0] = y_next
-            
-        #     # new_Y = new_Y[:, indices_1]
-            
-        #     ## TODO: how to replace points when it's an improvement in the objective but not in the violation
-        #     ## accompanied by model improvement
             
         if fy_next is not None:
             # indices = list(range(self.violations.shape[0]))
@@ -446,20 +419,26 @@ class TrustRegionSQPFilter():
             
             new_Y = new_Y[:, indices_1]
             
-        dist = 0
-        ind = None
-        # if (new_Y.shape[0] + 1)*(new_Y.shape[0]+2)/(2) >= new_Y.shape[1]: # too many points, remove the furthest
+        niter = 1
+
+        while (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2 < new_Y.shape[1] and niter < new_Y.shape[1]: 
+        # too many points, remove the point that contributes to the worst model
+            # Change point with largest poisedness
+            input_symbols = models.m_cf.model.input_symbols
+            _model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            _model.initialize(y=new_Y, f=None, tr_radius=None)
             
-        #     for i in range(1,new_Y.shape[1]):
-        #         _dist = np.linalg.norm(new_Y[:,0] - new_Y[:,i])
-                
-        #         if _dist > dist:
-        #             dist = _dist*1
-        #             ind = i*1
+            poisedness = _model.poisedness(rad=radius, center=Y[:,0])
+  
+            # index to replace -> poisedness.index            
+            if poisedness.index > 0:
+                new_Y = np.delete(new_Y, poisedness.index, axis=1)
+            else:
+                # print("not deleting", poisedness.poisedness)
+                new_Y = np.delete(new_Y, new_Y.shape[1]-1, axis=1)
+                pass
             
-        #     print(new_Y)
-        #     new_Y = np.delete(new_Y, ind, axis=1)
-        #     print(new_Y)
+            niter = niter + 1
         
         return new_Y
 
@@ -503,7 +482,7 @@ class TrustRegionSQPFilter():
                     
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
                 
-                print(f"poisedness.max_poisedness() = {poisedness.max_poisedness()}")
+                # print(f"poisedness.max_poisedness() = {poisedness.max_poisedness()}")
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
                             
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
