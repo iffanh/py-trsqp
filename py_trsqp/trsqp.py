@@ -163,6 +163,7 @@ class TrustRegionSQPFilter():
         self.ub, self.lb = _check_input(ub=ub, lb=lb, x0=x0)
         
         ## Transform input and bounds
+        self.n_points = 1
         x0 = np.array(x0)
         self.xn = x0*1
         self.zero_flags = x0 == 0.0
@@ -173,8 +174,7 @@ class TrustRegionSQPFilter():
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
-        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=k, d=x0.shape[0])
-        
+        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=self.n_points+2, d=x0.shape[0])
         
         ## Transform functions
         cf = self.transform_functions(cf)
@@ -384,16 +384,25 @@ class TrustRegionSQPFilter():
         sol = trqp_mod.sol.full()[:,0]
         return sol, trqp_mod.radius, trqp_mod.is_compatible
     
-    def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, radius:float, replace_type:str) -> np.ndarray:
-        
-        if replace_type == 'improve_model':
-            # Change point with largest poisedness
-            poisedness = models.m_cf.model.poisedness(rad=radius, center=Y[:,0])
-            # index to replace -> poisedness.index
-            new_Y = Y*1
-            new_Y[:, poisedness.index] = y_next
+    def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, fy_next, v_next, radius:float, replace_type:str) -> np.ndarray:
             
-        elif replace_type == 'worst_point': 
+        if fy_next is not None:
+            # indices = list(range(self.violations.shape[0]))
+            worst_f = models.m_cf.model.f.argsort()
+            worst_v = self.violations.argsort()
+        
+            new_Y = np.concatenate([y_next[:, np.newaxis], Y], axis=1)
+            worst_f = np.concatenate([[fy_next], worst_f])
+            worst_v = np.concatenate([[v_next], worst_v])
+            
+            indices = list(range(self.violations.shape[0] + 1))
+            tuples = list(zip(worst_v, worst_f, indices))
+            tuples.sort(key=lambda x:(x[0], x[1]), reverse=False)
+            
+            indices_1 = [ind[2] for ind in tuples]
+            
+            new_Y = new_Y[:, indices_1]
+        else:
             indices = list(range(self.violations.shape[0]))
             
             worst_f = models.m_cf.model.f.argsort()
@@ -408,10 +417,29 @@ class TrustRegionSQPFilter():
             new_Y[:, worst_index] = new_Y[:, 0]
             new_Y[:, 0] = y_next
             
-            # new_Y = new_Y[:, indices_1]
+            new_Y = new_Y[:, indices_1]
             
-            ## TODO: how to replace points when it's an improvement in the objective but not in the violation
-            ## accompanied by model improvement
+        niter = 1
+
+        while (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2 < new_Y.shape[1] and niter < new_Y.shape[1]: 
+        # too many points, remove the point that contributes to the worst model
+            # Change point with largest poisedness
+            input_symbols = models.m_cf.model.input_symbols
+            _model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            _model.initialize(y=new_Y, f=None, tr_radius=None)
+            
+            poisedness = _model.poisedness(rad=radius, center=Y[:,0])
+  
+            # index to replace -> poisedness.index            
+            if poisedness.index > 0:
+                new_Y = np.delete(new_Y, poisedness.index, axis=1)
+            else:
+                # print("not deleting", poisedness.poisedness)
+                new_Y = np.delete(new_Y, new_Y.shape[1]-1, axis=1)
+                pass
+            
+            niter = niter + 1
+        
         return new_Y
 
     def optimize(self, max_iter=15):
@@ -444,19 +472,18 @@ class TrustRegionSQPFilter():
                           
             elif need_model_improvement:
                 # TODO: introduce criticality step!!!
-                model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                model.initialize(y=Y, tr_radius=radius)
+                
+                if Y.shape[1] <= Y.shape[0]:
+                    model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
+                    model.initialize(y=Y, tr_radius=radius)    
+                else: 
+                    model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                    model.initialize(y=Y, tr_radius=radius)
+                    
                 poisedness = model.poisedness(rad=radius, center=Y[:,0])
                 
+                # print(f"poisedness.max_poisedness() = {poisedness.max_poisedness()}")
                 if poisedness.max_poisedness() > self.constants['L_threshold']:
-                    
-                    # # radius needs to be updated IF it exceeds the bound.    
-                    # rad = radius*1
-                    # for i in range(Y.shape[0]):
-                    #     if abs(Y[i,0] - self.lb[i]) < rad:
-                    #         rad = np.abs(Y[i,0] - self.lb[i])
-                    #     elif abs(Y[i,0] - self.ub[i]) < rad:
-                    #         rad = np.abs(Y[i,0] - self.ub[i])
                             
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()     
@@ -475,6 +502,7 @@ class TrustRegionSQPFilter():
             f_curr = self.models.m_cf.model.f[0]
             v_curr = self.violations[0]
             
+            # print(f"Y = {Y}, fY = {self.models.m_cf.model.f}, self.violations = {self.violations}")
             if k == 0:
                 
                 _fy = self.models.m_cf.model.f
@@ -559,6 +587,9 @@ class TrustRegionSQPFilter():
                             radius = self.constants['gamma_1']*radius
                             need_model_improvement = True
                             it_code = 1
+                            
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
+                            
                         else:
                             if rho >= self.constants['eta_2']:
                                 radius = radius*self.constants['gamma_2']
@@ -567,19 +598,19 @@ class TrustRegionSQPFilter():
                                 radius = radius*self.constants['gamma_1']
                                 it_code = 3
                             
-                            Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
                             need_model_improvement = False
                     else:
                         self.filter_SQP.add_to_filter((fy_next, v_next))
                             
                         if rho >= self.constants['eta_2']:
                             radius = radius*self.constants['gamma_2']
-                            Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
                             need_model_improvement = False
                             it_code = 4
                         else:
                             radius = radius*self.constants['gamma_1']
-                            Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
                             need_model_improvement = False
                             it_code = 5
                     pass
@@ -594,7 +625,7 @@ class TrustRegionSQPFilter():
                 v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                 _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
                 
-                Y = self.change_point(self.models, Y, y_next, radius, 'worst_point')
+                Y = self.change_point(self.models, Y, y_next, None, None, radius, 'worst_point')
                 need_model_improvement = True
                 it_code = 7
         

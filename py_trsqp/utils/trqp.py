@@ -117,12 +117,6 @@ class TRQP():
             pass
         else:
             eqcs = ca.vertcat(*[m.model.model_polynomial.symbol for m in models.m_eqcs.models])
-            jc_eqcs = ca.jacobian(eqcs, input_symbols)
-            eqcs_c = ca.Function('c_E', [input_symbols], [eqcs]) # equality constraint at center
-            jc_eqcs_c = ca.Function('A_E', [input_symbols], [jc_eqcs]) # jacobian of equality constraint at center
-            
-            g_eq = ca.simplify(eqcs_c(center) + ca.mtimes(jc_eqcs_c(center), input_symbols - center))
-            # g.append(g_eq)
             g.append(eqcs)
             for _ in range(len(models.m_eqcs.models)):
                 ubg.append(0.)
@@ -133,12 +127,6 @@ class TRQP():
             pass
         else:
             ineqcs = ca.vertcat(*[m.model.model_polynomial.symbol for m in models.m_ineqcs.models])
-            jc_ineqcs = ca.jacobian(ineqcs, input_symbols)
-            ineqcs_c = ca.Function('c_I', [input_symbols], [ineqcs]) # inequality constraint at center
-            jc_ineqcs_c = ca.Function('A_I', [input_symbols], [jc_ineqcs]) # jacobian of inequality constraint at center
-            
-            g_ineq = ca.simplify(ineqcs_c(center) + ca.mtimes(jc_ineqcs_c(center), input_symbols - center))
-            # g.append(g_ineq)
             g.append(ineqcs)
             for _ in range(len(models.m_ineqcs.models)):
                 ubg.append(ca.inf)
@@ -163,7 +151,6 @@ class TRQP():
         solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
         # sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
         sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
-
         is_compatible = True
         try:
             if not solver.stats()['success']:
