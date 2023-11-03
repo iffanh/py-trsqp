@@ -92,9 +92,9 @@ class ModelImprovement:
                 tr_radius = lpolynomials.tr_radius*1
                 new_y = lpolynomials.y*1
                 
-                surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0], L=L)
+                # surface_points = generate_uniform_sample_nsphere(k=2*new_y.shape[0]+1, d=new_y.shape[0])
                 new_y = center[:, np.newaxis] + surface_points*tr_radius
-                # new_y = np.concatenate([center[:, np.newaxis], (center + rad*np.ones(center.shape))[:, np.newaxis]], axis=1)
                 
                 lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
                 lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
@@ -120,7 +120,8 @@ class ModelImprovement:
                         tr_radius = lpolynomials.tr_radius*1
                         new_y = lpolynomials.y*1
 
-                        surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                        surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0], L=L)
+                        # surface_points = generate_uniform_sample_nsphere(k=int((new_y.shape[0]+2)*(new_y.shape[0]+1)/2), d=new_y.shape[0])
                         new_y = center[:, np.newaxis] + surface_points*tr_radius
                         # new_y = np.concatenate([center[:, np.newaxis], center + rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
                         lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
@@ -161,7 +162,8 @@ class ModelImprovement:
                     tr_radius = lpolynomials.tr_radius*1
                     new_y = lpolynomials.y*1
 
-                    surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                    # surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0])
+                    surface_points = generate_uniform_sample_nsphere(k=2*new_y.shape[0]+1, d=new_y.shape[0], L=L)
                     new_y = center[:, np.newaxis] + surface_points*tr_radius
                     # new_y = np.concatenate([center[:, np.newaxis], center + rad*np.ones(center.shape)[:, np.newaxis]], axis=1)
                     lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)

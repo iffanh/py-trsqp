@@ -174,7 +174,7 @@ class TrustRegionSQPFilter():
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
-        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=self.n_points+2, d=x0.shape[0])
+        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0])
         
         ## Transform functions
         cf = self.transform_functions(cf)
@@ -384,7 +384,7 @@ class TrustRegionSQPFilter():
         sol = trqp_mod.sol.full()[:,0]
         return sol, trqp_mod.radius, trqp_mod.is_compatible
     
-    def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, fy_next, v_next, radius:float, replace_type:str) -> np.ndarray:
+    def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, fy_next, v_next, radius:float, it_code:int) -> np.ndarray:
             
         if fy_next is not None:
             # indices = list(range(self.violations.shape[0]))
@@ -420,8 +420,15 @@ class TrustRegionSQPFilter():
             new_Y = new_Y[:, indices_1]
             
         niter = 1
+        
+        if it_code in []: 
+            max_points = (new_Y.shape[0] + 1)
+        elif it_code in []:
+            max_points = (2*new_Y.shape[0] + 1)
+        elif it_code in [1, 2, 3, 4, 5, 6, 7]:
+            max_points = (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2
 
-        while (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2 < new_Y.shape[1] and niter < new_Y.shape[1]: 
+        while max_points < new_Y.shape[1] and niter < new_Y.shape[1]: 
         # too many points, remove the point that contributes to the worst model
             # Change point with largest poisedness
             input_symbols = models.m_cf.model.input_symbols
@@ -588,7 +595,7 @@ class TrustRegionSQPFilter():
                             need_model_improvement = True
                             it_code = 1
                             
-                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                             
                         else:
                             if rho >= self.constants['eta_2']:
@@ -598,36 +605,41 @@ class TrustRegionSQPFilter():
                                 radius = radius*self.constants['gamma_1']
                                 it_code = 3
                             
-                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                             need_model_improvement = False
                     else:
                         self.filter_SQP.add_to_filter((fy_next, v_next))
                             
                         if rho >= self.constants['eta_2']:
                             radius = radius*self.constants['gamma_2']
-                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
-                            need_model_improvement = False
                             it_code = 4
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                            need_model_improvement = False
+                            
                         else:
                             radius = radius*self.constants['gamma_1']
-                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, 'worst_point')
-                            need_model_improvement = False
                             it_code = 5
+                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                            need_model_improvement = True
+                            
                     pass
                 
                 else:
                     radius = self.constants['gamma_0']*radius
-                    need_model_improvement = True
                     it_code = 6
+                    Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                    need_model_improvement = True
+                    
                     
             else:
                 fy_curr = self.models.m_cf.model.f[0]
                 v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                 _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
                 
-                Y = self.change_point(self.models, Y, y_next, None, None, radius, 'worst_point')
-                need_model_improvement = True
                 it_code = 7
+                Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
+                need_model_improvement = True
+                
         
             if k == max_iter - 1:
                 exit_code = 'Maximum iteration'

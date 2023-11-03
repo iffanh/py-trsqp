@@ -13,7 +13,7 @@ def eq1(x):
     return x[0] - x[1] - 1
 
 CONSTANTS = {}
-CONSTANTS["L_threshold"] = 1.000
+CONSTANTS["L_threshold"] = 1.0
 CONSTANTS["kappa_vartheta"] = 0.1
 CONSTANTS["eta_1"] = 0.1
 CONSTANTS["eta_2"] = 0.4
@@ -58,6 +58,7 @@ class TRSQPTest(unittest.TestCase):
                                     opts={'solver': 'ipopt'}, 
                                     constants=CONSTANTS)
         tr.optimize(max_iter=50)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=4)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
@@ -73,6 +74,7 @@ class TRSQPTest(unittest.TestCase):
                                     opts={'solver': 'ipopt'}, 
                                     constants=CONSTANTS)
         tr.optimize(max_iter=50)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
         sol0 = 36/28 #analytical solution
         sol1 = 8/28
@@ -99,6 +101,7 @@ class TRSQPTest(unittest.TestCase):
                                     opts={'solver': 'ipopt'}, 
                                     constants=CONSTANTS)
         tr.optimize(max_iter=1000)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=3)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=3)
