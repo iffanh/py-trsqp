@@ -543,8 +543,8 @@ class TrustRegionSQPFilter():
             if f_curr is not None:
                 print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
             else:
-                print(f"It. {k}: Failed.")
-                radius = self.constants['gamma_1']*radius
+                print(f"It. {k}: Failed. x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
+                radius = self.constants['gamma_0']*radius
                 need_model_improvement = True
                 need_rebuild = True
                 it_code = 10
