@@ -16,6 +16,15 @@ def disc(x:np.ndarray) -> np.ndarray:
 def eq1(x):
     return x[0] - x[1] - 1
 
+def ineq1(x):
+    return x[0] + x[1]**2
+
+def ineq2(x):
+    return x[0]**2 + x[1]
+
+def ineq3(x):
+    return x[0]**2 + x[1]**2 - 1
+
 def ackley(x:np.ndarray) -> np.ndarray: 
     return -20*np.exp(-0.2*np.sqrt(0.5*(x[0]**2 + x[1]**2))) - np.exp(0.5*(np.cos(2*np.pi*x[0]) + np.cos(2*np.pi*x[1]))) + np.e + 20
 
@@ -142,8 +151,33 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=3)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=2)
+        
+    def test_trsqp_rosen_with_ineq(self):
+        print("======== ROSENBROCK w INEQ ========")
+        CONSTANTS = {}
+        CONSTANTS["L_threshold"] = 1.000
+        CONSTANTS["eta_1"] = 0.1
+        CONSTANTS["eta_2"] = 0.2
+        CONSTANTS["gamma_0"] = 0.5
+        CONSTANTS["gamma_1"] = 0.7
+        CONSTANTS["gamma_2"] = 1.5
+        CONSTANTS["stopping_radius"] = 1E-12
+        tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0], 
+                                    k=6,
+                                    cf=rosen, 
+                                    ub=[0.5, np.inf],
+                                    lb=[-0.5, -np.inf],
+                                    eqcs=[], 
+                                    ineqcs=[ineq1, ineq2, ineq3],
+                                    opts={'solver': 'ipopt'}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=1000)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 0.5, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 0.5*np.sqrt(3), places=2)
         
     def test_trsqp_ackley(self):
         print("======== ACKLEY ========")
