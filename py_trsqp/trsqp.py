@@ -646,7 +646,7 @@ class TrustRegionSQPFilter():
                 it_code = 7
                 Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
                 need_model_improvement = True
-                need_rebuild = True
+                need_rebuild = False
                 
         
             if k == max_iter - 1:
