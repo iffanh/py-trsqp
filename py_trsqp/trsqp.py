@@ -174,7 +174,7 @@ class TrustRegionSQPFilter():
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
-        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0])
+        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0])        
         
         ## Transform functions
         cf = self.transform_functions(cf)
@@ -418,10 +418,13 @@ class TrustRegionSQPFilter():
             worst_index = indices_1[-1]
 
             new_Y = models.m_cf.model.y*1
-            new_Y[:, worst_index] = new_Y[:, 0]
-            new_Y[:, 0] = y_next
-            
-            new_Y = new_Y[:, indices_1]
+            if it_code in [7]:
+                new_Y = np.concatenate([y_next[:, np.newaxis], new_Y], axis=1)
+                
+            else:
+                
+                new_Y = new_Y[:, indices_1]
+                new_Y = np.concatenate([new_Y, y_next[:, np.newaxis]], axis=1)
             
         niter = 1
         
@@ -455,7 +458,7 @@ class TrustRegionSQPFilter():
 
     def optimize(self, max_iter=15):
         
-        need_model_improvement = True
+        need_model_improvement = False
         need_rebuild = False
         it_code = -1
         neval = 0
@@ -545,7 +548,7 @@ class TrustRegionSQPFilter():
             
             #Inform user
             if f_curr is not None:
-                print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}")
+                print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             else:
                 it_code = 10
                 print(f"It. {k}: Failed. r= {radius:.2e}, it_code= {it_code}, nevals= {neval}")
@@ -643,6 +646,7 @@ class TrustRegionSQPFilter():
                 it_code = 7
                 Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
                 need_model_improvement = True
+                need_rebuild = True
                 
         
             if k == max_iter - 1:

@@ -154,9 +154,18 @@ class TRQP():
         is_compatible = True
         try:
             if not solver.stats()['success']:
-                sol = solver(x0=center+(radius/1E+20), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+                for i in range(1, data.shape[1]):
+                    #check constraints
+                    c = ca.Function(f'm_f', [input_symbols], [*g])
+                    center = data[:,i]
+                    
+                    sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+                    if solver.stats()['success']:
+                        break            
+                    
                 if solver.stats()['return_status'] == "Infeasible_Problem_Detected":
                     raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
+            
         except TRQPIncompatible:
             sol, radius = self.invoke_restoration_step(models, ub, lb, radius)
             is_compatible = False
@@ -170,27 +179,37 @@ class TRQP():
         input_symbols = models.input_symbols
         data = models.m_cf.model.y
         center = data[:,0]
+        
+        max_iter = 100
+        iteration = 0
+        is_success = False
+        while iteration < max_iter and not is_success:
+            # EXPERIMENTAL
             
-        # tr radius as input bound      
-        ubx = np.min((center + radius, ub), axis=0) 
-        lbx = np.max((center - radius, lb), axis=0)
-        lbx[lbx > ubx] = ubx[lbx > ubx]
-        
-        nlp = {
-            'x': input_symbols,
-            'f': models.m_viol.symbol
-        }
-        
-        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
-        
-        solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
-        # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
-        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx)
-        if solver.stats()['success']:
-            pass
-        else:
-            # raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
-            print(f"Next solution point might not be totally feasible")
-            pass
+            # tr radius as input bound      
+            ubx = np.min((center + radius, ub), axis=0) 
+            lbx = np.max((center - radius, lb), axis=0)
+            lbx[lbx > ubx] = ubx[lbx > ubx]
             
+            nlp = {
+                'x': input_symbols,
+                'f': models.m_viol.symbol
+            }
+            
+            opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
+            
+            solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
+            # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
+            sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx)
+            if solver.stats()['success']:
+                is_success = True
+                pass
+            else:
+                # raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
+                print(f"Next solution point might not be totally feasible")
+                pass
+            
+            radius = radius/1.1
+            iteration = iteration + 1
+        
         return sol, radius
