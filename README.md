@@ -9,7 +9,9 @@ To solve the TRQP subproblem, the repository utilizes IPOPT, a powerful optimiza
 The optimization takes the following form
 
 $$ \min_x f(x) $$
-$$ c_i \geq 0 \quad i \in \mathcal{E} $$
+
+$$ c_i \geq 0, \quad i \in \mathcal{E} $$
+
 $$ c_i = 0, \quad i \in \mathcal{I} $$
 
 ## Installation
