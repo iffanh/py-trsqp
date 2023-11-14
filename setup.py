@@ -16,7 +16,7 @@ setuptools.setup(
     # packages=setuptools.find_packages('py_trsqp', 'py_trsqp.utils', exclude=['test']),
     packages=['py_trsqp', 'py_trsqp.utils'],
     name='py_trsqp',
-    version='0.0.5a4',
+    version='0.0.5a5',
     author='Muhammad Iffan Hannanu',
     author_email='iffan.hannanu@gmail.com',
     description='First Official Release',
