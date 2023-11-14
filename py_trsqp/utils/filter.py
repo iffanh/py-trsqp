@@ -29,9 +29,9 @@ class FilterSQP():
                 if is_acceptable:
                     curr_filter = [coordinate]
                     for coord in self.filters:
-                        if coord[1] >= (1-g)*coordinate[1] and coord[0] >= coordinate[0] - g*coord[1]:
-                            pass
-                        else:
+                        # if coord[1] >= (1-g)*coordinate[1] and coord[0] >= coordinate[0] - g*coord[1]:
+                        #     pass
+                        # else:
                             curr_filter.append(coord)
                     self.filters = curr_filter
         self.filters.sort(key=lambda x: x[1])

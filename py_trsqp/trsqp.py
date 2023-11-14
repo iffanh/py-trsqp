@@ -390,11 +390,12 @@ class TrustRegionSQPFilter():
             # indices = list(range(self.violations.shape[0]))
             worst_f = models.m_cf.model.f.argsort()
             worst_v = self.violations.argsort()
+           
             new_Y = np.concatenate([y_next[:, np.newaxis], Y], axis=1)
-            worst_f = np.concatenate([[fy_next], worst_f])
-            worst_v = np.concatenate([[v_next], worst_v])
-                
-            if it_code in [2,3,4,5]:
+            worst_f = np.concatenate([[fy_next], models.m_cf.model.f])
+            worst_v = np.concatenate([[v_next], self.violations])
+            
+            if it_code in []:
                 # we are not ordering by violation first, following the algorithm.
                 pass
             else:
@@ -415,7 +416,6 @@ class TrustRegionSQPFilter():
             tuples = list(zip(worst_v, worst_f, indices))
             tuples.sort(key=lambda x:(x[0], x[1]), reverse=False)
             indices_1 = [ind[2] for ind in tuples]
-            worst_index = indices_1[-1]
 
             new_Y = models.m_cf.model.y*1
             if it_code in [7]:
@@ -521,10 +521,8 @@ class TrustRegionSQPFilter():
                 
                 _fy = self.models.m_cf.model.f
                 _v = self.violations
-                
-                for ii in range(_v.shape[0]):
-                    if _v[ii] is not None:
-                        _ = self.filter_SQP.add_to_filter((_fy[ii], _v[ii]))
+                        
+                self.filter_SQP.add_to_filter((_fy[0], _v[0]))
             
             iterates = dict()
             iterates['iteration_no'] = k
