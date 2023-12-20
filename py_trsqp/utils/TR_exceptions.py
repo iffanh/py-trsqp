@@ -15,7 +15,11 @@ class EndOfAlgorithm(Exception):
     pass
 
 class PoisednessIsZeroException(Exception):
-    "Raise when, yeah, poisedness is zero. Usually because of duplicated points"
+    "Raised when poisedness is zero. Usually because of duplicated points"
+    pass
+
+class IllPoisedModel(Exception):
+    "Raised when SVD does not converge"
     pass
 
 class SolutionFound(Exception):

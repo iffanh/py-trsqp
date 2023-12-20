@@ -1,9 +1,10 @@
 import numpy as np
+from numpy.linalg import LinAlgError
 import casadi as ca
 from typing import List, Tuple, Union
 from multiprocessing import Pool
 import copy
-from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, IncorrectInputException, FailedSimulation
+from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, IncorrectInputException, FailedSimulation, IllPoisedModel
 from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
 from .utils.trqp import TRQP
@@ -317,6 +318,13 @@ class TrustRegionSQPFilter():
     def main_run(self, Y:np.ndarray, reorder:bool=True):
 
         try:
+            m_cf = CostFunctionModel(input_symbols=self.input_symbols, 
+                                    Y=Y, 
+                                    fY=None)
+        except LinAlgError:
+            raise IllPoisedModel(f"SVD did not converge. Rebuilding from the last point.")
+        
+        try:
             fY_cf, fYs_eq, fYs_ineq = self.run_simulations(Y)
             v, v_eq, v_ineq = self.calculate_violation(Y=Y, fYs_eq=fYs_eq, fYs_ineq=fYs_ineq)
             if reorder:
@@ -338,8 +346,8 @@ class TrustRegionSQPFilter():
         self.violations_ineq = v_ineq
         
         m_cf = CostFunctionModel(input_symbols=self.input_symbols, 
-                                Y=Y, 
-                                fY=fY_cf)
+                                    Y=Y, 
+                                    fY=fY_cf)
 
         m_eqcs = EqualityConstraintModels(input_symbols=self.input_symbols, 
                                     Y=Y, 
@@ -475,13 +483,12 @@ class TrustRegionSQPFilter():
                 exit_code = 'Minimum radius'
                 break
             
+            
+            ## prepare/check the interpolation points
             if need_rebuild:
                 
                 center = Y[:, [0]]
-                new_y = center + (Y-center)*radius
-                self.models = self.main_run(Y=new_y)
-                Y = self.models.m_cf.model.y*1
-                
+                new_y = center + (Y-center)*radius 
                 need_rebuild = False
                           
             elif need_model_improvement:
@@ -502,21 +509,29 @@ class TrustRegionSQPFilter():
                     sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                     sg.improve_geometry()     
                     improved_model = sg.model
-                    self.models = self.main_run(Y=improved_model.y)
-                    Y = self.models.m_cf.model.y
+                    new_y = improved_model.y
 
                 else:
-                    self.models = self.main_run(Y=Y)
-                    Y = self.models.m_cf.model.y*1
+                    new_y = Y*1
+                    
             else:
-                self.models = self.main_run(Y=Y)
-                Y = self.models.m_cf.model.y*1
+                new_y = Y*1
+                
+            ## run simulation and build models
+            try:
+                self.models = self.main_run(Y=new_y)
+            except IllPoisedModel:
+                need_rebuild = False
+                need_model_improvement = True
+                continue
+            
+            Y = self.models.m_cf.model.y*1
+            
             
             y_curr = Y[:,0]
             f_curr = self.models.m_cf.model.f[0]
             v_curr = self.violations[0]
             
-            # print(f"Y = {Y}, fY = {self.models.m_cf.model.f}, self.violations = {self.violations}")
             if k == 0:
                 
                 _fy = self.models.m_cf.model.f
