@@ -65,7 +65,24 @@ class TRSQPTest(unittest.TestCase):
                                         cf=simple,
                                         ub=3, 
                                         lb=[-1])
+    
+    def test_trsqp_simple_budget(self):
+        print("======== SIMPLE ========")
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
+                                    k=6,
+                                    cf=simple,
+                                    ub=3.0,
+                                    lb=-3.0,
+                                    eqcs=[], 
+                                    ineqcs=[],
+                                    opts={'solver': 'ipopt', 'budget': 1}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=50)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
+        self.assertEqual(tr.termination_status, 'Budget Exceeded')
+        # self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
+            
     def test_trsqp_simple(self):
         print("======== SIMPLE ========")
         tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 

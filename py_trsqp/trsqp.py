@@ -14,7 +14,7 @@ from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
     
-    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt"}) -> None:
+    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt", 'budget': 1000}) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -158,7 +158,23 @@ class TrustRegionSQPFilter():
             
             return ub, lb
         
-        self.opts = opts
+        def _check_opts(opts):
+            
+            _opts = {}
+            try: 
+                _opts['solver'] = opts['solver']
+            except: 
+                _opts['solver'] = 'ipopt'
+            
+            try:
+                _opts['budget'] = opts['budget']
+            except: 
+                _opts['budget'] = 1000
+                
+            return _opts
+
+        
+        self.opts = _check_opts(opts)
         self.constants = _check_constants(constants=constants)
         self.n_eqcs, self.n_ineqcs = _check_constraints(eqcs=eqcs, ineqcs=ineqcs)
         self.ub, self.lb = _check_input(ub=ub, lb=lb, x0=x0)
@@ -516,6 +532,12 @@ class TrustRegionSQPFilter():
                     
             else:
                 new_y = Y*1
+                
+            
+            # check whether the upcoming simulation exceeds the budget
+            if self.opts['budget'] < self.sm.cf.number_of_function_calls:
+                exit_code = 'Budget Exceeded'
+                break
                 
             ## run simulation and build models
             try:
