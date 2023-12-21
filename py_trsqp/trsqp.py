@@ -171,6 +171,22 @@ class TrustRegionSQPFilter():
             except: 
                 _opts['budget'] = 1000
                 
+            try:
+                _opts['max_points'] = opts['max_points']
+                
+                max_points = int((len(x0)+1)*(len(x0)+2)/2)
+                if opts['max_points'] > max_points:
+                    print(f"Too many allowed points. Reduced from {opts['max_points']} to {max_points}")
+                    _opts['max_points'] = max_points
+                    
+                max_points = int((len(x0)+1))
+                if opts['max_points'] < max_points:
+                    print(f"Too few allowed points. Increased from {opts['max_points']} to {max_points}")
+                    _opts['max_points'] = max_points
+                    
+            except: 
+                _opts['max_points'] = int((len(x0)+1)*(len(x0)+2)/2)
+                
             return _opts
 
         
@@ -457,7 +473,8 @@ class TrustRegionSQPFilter():
         elif it_code in []:
             max_points = (2*new_Y.shape[0] + 1)
         elif it_code in [1, 2, 3, 4, 5, 6, 7]:
-            max_points = (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2
+            # max_points = (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2
+            max_points = self.opts['max_points']
 
         while max_points < new_Y.shape[1] and niter < new_Y.shape[1]: 
         # too many points, remove the point that contributes to the worst model

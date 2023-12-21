@@ -66,8 +66,41 @@ class TRSQPTest(unittest.TestCase):
                                         ub=3, 
                                         lb=[-1])
     
+    def test_trsqp_simple_max_points(self):
+        print("======== SIMPLE MAX POINTS 1 ========")
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
+                                    k=6,
+                                    cf=simple,
+                                    ub=3.0,
+                                    lb=-3.0,
+                                    eqcs=[], 
+                                    ineqcs=[],
+                                    opts={'solver': 'ipopt', 'max_points': 2}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=10)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        
+        for t in tr.iterates:
+            self.assertLessEqual(t['number_of_function_calls'], 3)
+            
+        print("======== SIMPLE MAX POINTS 2 ========")
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
+                                    k=6,
+                                    cf=simple,
+                                    ub=3.0,
+                                    lb=-3.0,
+                                    eqcs=[], 
+                                    ineqcs=[],
+                                    opts={'solver': 'ipopt', 'max_points': 7}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=10)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        
+        for t in tr.iterates:
+            self.assertLessEqual(t['number_of_function_calls'], 6)
+        
     def test_trsqp_simple_budget(self):
-        print("======== SIMPLE ========")
+        print("======== SIMPLE BUDGET ========")
         tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
                                     k=6,
                                     cf=simple,
@@ -81,7 +114,7 @@ class TRSQPTest(unittest.TestCase):
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
         self.assertEqual(tr.termination_status, 'Budget Exceeded')
-        # self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
             
     def test_trsqp_simple(self):
         print("======== SIMPLE ========")
