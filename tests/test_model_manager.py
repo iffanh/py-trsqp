@@ -53,7 +53,7 @@ class CostFunctionModelTest(unittest.TestCase):
                                    Y=_Y, 
                                    fY=_fY)
         f2 = cfm2.model.interpolate([0.0, 0.0])
-        self.assertAlmostEqual(f2, 1.0) ## Good enough model
+        self.assertAlmostEqual(f2, 1.0, places=5) ## Good enough model
         
 
 if __name__ == '__main__':

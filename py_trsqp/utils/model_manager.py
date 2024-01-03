@@ -72,19 +72,24 @@ class EqualityConstraintModel():
 class InequalityConstraintModels():
     def __init__(self, input_symbols, Y:List[np.ndarray], fYs:List[np.ndarray]) -> None:
 
-        self.models = [InequalityConstraintModel(input_symbols, Y, fY, i) for i, fY in enumerate(fYs)]
+        ## For bound constraints, we use only first order of lagrange polynomial
+        nx = Y.shape[0]
+        L = len(fYs)
+        
+        self.models = [InequalityConstraintModel(input_symbols, Y, fY, i, 2) if i < (L - 2*nx) else InequalityConstraintModel(input_symbols, Y, fY, i, 1) for i, fY in enumerate(fYs)]
         self.n = len(self.models)
 
     def __str__(self) -> str:
         return f"InequalityConstraintModels(n = {self.n})"
 
 class InequalityConstraintModel():
-    def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray, index:int) -> None:
+    def __init__(self, input_symbols, Y:np.ndarray, fY:np.ndarray, index:int, degree:int) -> None:
+        
         if Y.shape[1] <= Y.shape[0]:
             self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=1)
             self.model.initialize(y=Y, f=fY, tr_radius=None)    
         else: 
-            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            self.model = LagrangePolynomials(input_symbols=input_symbols, pdegree=degree)
             self.model.initialize(y=Y, f=fY, tr_radius=None)
         self.index = index
 

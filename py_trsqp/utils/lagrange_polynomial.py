@@ -251,6 +251,7 @@ class LagrangePolynomials:
             self.gradient, self.Hessian = self._get_coefficients_from_expression(self.model_polynomial.symbol, self.input_symbols, self.pdegree)    
         
         self.index_of_largest_lagrangian_norm = None
+        
     
     def interpolate(self, x:np.ndarray) -> float:
         """Interpolate using the interpolation model given the input x. 

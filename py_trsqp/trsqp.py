@@ -215,6 +215,14 @@ class TrustRegionSQPFilter():
         eqcs = [self.transform_functions(eqc) for eqc in eqcs]
         ineqcs = [self.transform_functions(ineqc) for ineqc in ineqcs]
         
+        # # add bounds to ineqcs
+        # for i in range(len(self.ub)):
+        #     bound_f = lambda x, i=i: self.ub[i] - x[i]
+        #     ineqcs.append(self.transform_functions(bound_f))
+            
+        #     bound_f = lambda x, i=i: x[i] - self.lb[i]
+        #     ineqcs.append(self.transform_functions(bound_f))
+        
         self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
         self.input_symbols = ca.SX.sym('x', x0.shape[0])
     
@@ -262,7 +270,6 @@ class TrustRegionSQPFilter():
         # do the same with inequality constraints
         fYs_ineq = []
         for ineqc in self.sm.ineqcs.ineqcs:
-            
             fYs = []
             for i in range(Y.shape[1]):
                 fY = ineqc.func(Y[:,i])
@@ -276,6 +283,8 @@ class TrustRegionSQPFilter():
         return fY_cf, fYs_eq, fYs_ineq
     
     def calculate_violation(self, Y:np.ndarray, fYs_eq:List[np.ndarray], fYs_ineq:List[np.ndarray]):
+        
+        TOL = 1E-7
         
         # # create violation function Eq 15.5.3            
         violations = []
@@ -292,6 +301,9 @@ class TrustRegionSQPFilter():
             for i in range(self.sm.eqcs.n_eqcs):
                 tmp = fYs_eq[i][j]
                 
+                if np.abs(tmp) < TOL:
+                    tmp = 0.
+                
                 v_eq_list.append(tmp)
                 v = ca.fmax(v, ca.fabs(tmp))
                 v_eq = ca.fmax(v_eq, ca.fabs(tmp))
@@ -301,9 +313,12 @@ class TrustRegionSQPFilter():
             for i in range(self.sm.ineqcs.n_ineqcs):
                 tmp = fYs_ineq[i][j]
                 
+                if np.abs(tmp) < TOL:
+                    tmp = 0.
+                
                 v_ineq_list.append(tmp)
-                v = ca.fmax(v, ca.fmax(0.0, -fYs_ineq[i][j]))
-                v_ineq = ca.fmax(v_ineq, ca.fmax(0.0, -fYs_ineq[i][j]))
+                v = ca.fmax(v, ca.fmax(0.0, -tmp))
+                v_ineq = ca.fmax(v_ineq, ca.fmax(0.0, -tmp))
             
             violations.append(v)
             violations_eq.append(v_eq)
@@ -395,13 +410,19 @@ class TrustRegionSQPFilter():
         return ModelManager(input_symbols=self.input_symbols, m_cf=m_cf, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, m_viol=m_viol)
 
     def run_single_simulation(self, y:np.ndarray) -> Tuple[float, float]:
+        
+        TOL = 1E-7
+        
         fy = self.sm.cf.func(y)
         if np.isnan(fy) or np.isinf(fy):
             raise FailedSimulation(f"Failed at x={y}")
             
         v_eq = 0
         for eqc in self.sm.eqcs.eqcs:
-            fY = eqc.func(y) 
+            fY = eqc.func(y)
+            if np.abs(fY) < TOL:
+                fY = 0.0
+                 
             if np.isnan(fy) or np.isinf(fy):
                 raise FailedSimulation(f"Failed at x={y}")
             if ca.fabs(fY) > v_eq:
@@ -410,6 +431,9 @@ class TrustRegionSQPFilter():
         v_ineq = 0 ## v_ineq >= 0
         for eqc in self.sm.ineqcs.ineqcs:
             fY = eqc.func(y)
+            if np.abs(fY) < TOL:
+                fY = 0.0
+                
             if np.isnan(fy) or np.isinf(fy):
                 raise FailedSimulation(f"Failed at x={y}")
             if -fY > v_ineq:
@@ -647,7 +671,7 @@ class TrustRegionSQPFilter():
                     mfy_next = self.models.m_cf.model.model_polynomial.feval(y_next)
                     fy_curr = self.models.m_cf.model.f[0]
                     
-                    rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)   
+                    rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)
                     if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2): 
                         if rho < self.constants['eta_1']:
                             radius = self.constants['gamma_1']*radius

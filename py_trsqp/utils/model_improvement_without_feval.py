@@ -1,4 +1,4 @@
-from .lagrange_polynomial import LagrangePolynomials
+from .lagrange_polynomial import LagrangePolynomials, LagrangePolynomial
 import numpy as np
 import casadi as ca
 from typing import Tuple
@@ -16,15 +16,18 @@ def _generate_uniform_sample_nsphere(k:int, d:int):
 
 @functools.lru_cache() 
 def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
+    from casadi import Function
     print(f"Generating {k}-uniform points on the {d}-sphere ...")
     input_symbols = ca.SX.sym('x', d)
     samples = _generate_uniform_sample_nsphere(k-1, d)
+    # samples = _generate_uniform_sample_nsphere(k, d)
 
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=samples, tr_radius=1.0)
     
     # Gets too slow for k > 10    
-    
+    # TODO: How to accelerate this
+    # if k < 10:
     for i in range(k):
         poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
         curr_lambda = poisedness.max_poisedness()
@@ -32,6 +35,7 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         if curr_lambda < L:
             # enough
             new_y = lpolynomials.y*1
+            print(f"enough. curr_lambda = {curr_lambda}")
             break
         
         pindex = poisedness.index
@@ -42,17 +46,56 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         
         # replace value
         new_y[:, pindex] = new_point
+        lpoly = lpolynomials.lagrange_polynomials[pindex]
+        
+        ## Algorithm 6.1
+        if lpoly.feval(new_point) == 0:
+            raise Exception("Problem here")
+        
+        new_lpoly = lpoly.symbol/lpoly.feval(new_point) #(6.9)
+        
+        # update lagrange polynomial
+        new_lpolynomials = []
+        for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials):
+            
+            if j == pindex:
+                function = Function(f'lambda_{i}', [input_symbols], [new_lpoly])                         
+                new_lpolynomials.append(LagrangePolynomial(new_lpoly, function))
+                # continue 
+               
+            else:
+            
+                _feval = Function(f'lambda_{i}', [input_symbols], [_lpoly.symbol])
+                _new_lpoly = _lpoly.symbol - _feval(new_point)*new_lpoly #(6.10)
+                
+                function = Function(f'lambda_{i}', [input_symbols], [_new_lpoly]) 
+                new_lpolynomials.append(LagrangePolynomial(_new_lpoly, function))
         
         # create polynomials
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)    
+        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0, lpolynomials=new_lpolynomials)    
+        
+            # # create polynomials
+            # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+            # lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)    
+    # else:
+    #     new_y = lpolynomials.y*1
+    #     poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
+    #     curr_lambda = poisedness.max_poisedness()
 
-    if np.linalg.norm(new_y[:,0]) < 1E-8:
-        for j in range(1,k-1):
-            new_y[:,j] = new_y[:,j]/np.linalg.norm(new_y[:,j])
+    
+    # print(f"before = {new_y}")
+    # print(f"poisedness = {curr_lambda}")
+    # if np.linalg.norm(new_y[:,0]) < 1E-8:
+    #     for j in range(1,k-1):
+    #         new_y[:,j] = new_y[:,j]/np.linalg.norm(new_y[:,j])
+            
+    # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+    # lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
+    # for i in range(k-1):
+    #     print(f"OK Poisedness of the points on the surface of the {d}-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array(new_y[:,i])).max_poisedness()}")
     
     new_y = np.concatenate((np.zeros((d, 1)), new_y), axis=1)
-    
     
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
