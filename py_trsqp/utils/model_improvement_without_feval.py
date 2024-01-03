@@ -3,6 +3,8 @@ import numpy as np
 import casadi as ca
 from typing import Tuple
 import functools
+from casadi import Function
+import time
 
 def _generate_uniform_sample_nsphere(k:int, d:int):
     RNG = np.random.default_rng(seed=12345)
@@ -16,10 +18,13 @@ def _generate_uniform_sample_nsphere(k:int, d:int):
 
 @functools.lru_cache() 
 def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
-    from casadi import Function
+    
     print(f"Generating {k}-uniform points on the {d}-sphere ...")
     input_symbols = ca.SX.sym('x', d)
+    # start = time.time()
     samples = _generate_uniform_sample_nsphere(k-1, d)
+    # end = time.time()
+    # print(f"Elapsed time = {end - start}")
     # samples = _generate_uniform_sample_nsphere(k, d)
 
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
@@ -29,6 +34,7 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     # TODO: How to accelerate this
     # if k < 10:
     for i in range(k):
+        # start = time.time()
         poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
         curr_lambda = poisedness.max_poisedness()
 
@@ -57,7 +63,6 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         # update lagrange polynomial
         new_lpolynomials = []
         for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials):
-            
             if j == pindex:
                 function = Function(f'lambda_{i}', [input_symbols], [new_lpoly])                         
                 new_lpolynomials.append(LagrangePolynomial(new_lpoly, function))
@@ -71,9 +76,13 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
                 function = Function(f'lambda_{i}', [input_symbols], [_new_lpoly]) 
                 new_lpolynomials.append(LagrangePolynomial(_new_lpoly, function))
         
+        
         # create polynomials
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0, lpolynomials=new_lpolynomials)    
+        lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0, lpolynomials=new_lpolynomials)
+        
+        # end = time.time()
+        # print(f"Elapsed time to replace a point = {end - start}")
         
             # # create polynomials
             # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
@@ -127,6 +136,7 @@ class ModelImprovement:
         from casadi import Function
         
         for k in range(max_iter):
+        # for k in range(1):
             # Algorithm 6.3
             poisedness = lpolynomials.poisedness(rad=rad, center=center)
             Lambda = poisedness.max_poisedness()

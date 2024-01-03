@@ -207,7 +207,7 @@ class TrustRegionSQPFilter():
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
-        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0])        
+        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0], L=self.constants['L_threshold'])        
         
         ## Transform functions
         cf = self.transform_functions(cf)

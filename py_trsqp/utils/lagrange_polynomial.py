@@ -124,7 +124,7 @@ class LagrangePolynomial:
         
         self.success = False
         iteration = 1
-        while not self.success and iteration < 5:
+        while not self.success and iteration < 2:
             nlinear_constraint = self._define_nonlinear_constraint(rad, center)
             nlinear_bound = self._define_nonlinear_bounds(rad, center)
             self.max_sol = minimize(self._func_to_minimize, x0, method='SLSQP', bounds=nlinear_bound, constraints=[nlinear_constraint])
@@ -290,11 +290,6 @@ class LagrangePolynomials:
         for lp in lagrange_polynomials:
             max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)          
             max_sols.append(max_sol)
-            
-            # if np.abs(feval) < 1:
-            #     feval = np.inf
-            # else:
-            #     feval = np.abs(feval)
             
             Lambdas.append(feval)
             
