@@ -76,7 +76,8 @@ class InequalityConstraintModels():
         nx = Y.shape[0]
         L = len(fYs)
         
-        self.models = [InequalityConstraintModel(input_symbols, Y, fY, i, 2) if i < (L - 2*nx) else InequalityConstraintModel(input_symbols, Y, fY, i, 1) for i, fY in enumerate(fYs)]
+        # self.models = [InequalityConstraintModel(input_symbols, Y, fY, i, 2) if i < (L - 2*nx) else InequalityConstraintModel(input_symbols, Y, fY, i, 1) for i, fY in enumerate(fYs)]
+        self.models = [InequalityConstraintModel(input_symbols, Y, fY, i, 2) for i, fY in enumerate(fYs)]
         self.n = len(self.models)
 
     def __str__(self) -> str:

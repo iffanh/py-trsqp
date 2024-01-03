@@ -97,10 +97,11 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     
     new_y = np.concatenate((np.zeros((d, 1)), new_y), axis=1)
     
-    lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-    lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
-    print(f"Poisedness of the points on the surface of the {d}-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d)).max_poisedness()}")
-    return lpolynomials.y
+    # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
+    # lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
+    # print(f"Poisedness of the points on the surface of the {d}-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d)).max_poisedness()}")
+    # return lpolynomials.y
+    return new_y
 
 class ModelImprovement:
     """ Class that responsible for improving the lagrange polynomial models based on the poisedness of set Y. 
@@ -123,6 +124,7 @@ class ModelImprovement:
         Returns:
             LagrangePolynomials: New LagrangePolynomial object with improved poisedness
         """
+        from casadi import Function
         
         for k in range(max_iter):
             # Algorithm 6.3
@@ -177,6 +179,7 @@ class ModelImprovement:
                         curr_Lambda = Lambda*1
                         break
                     
+                    
                     # copy values
                     new_y = lpolynomials.y*1
                     tr_radius = lpolynomials.tr_radius*1
@@ -184,9 +187,38 @@ class ModelImprovement:
                     # replace value
                     new_y[:, pindex] = new_point
                     
+                    lpoly = lpolynomials.lagrange_polynomials[pindex]
+        
+                    ## Algorithm 6.1
+                    if lpoly.feval(new_point) == 0:
+                        raise Exception("Problem here")
+                    
+                    new_lpoly = lpoly.symbol/lpoly.feval(new_point) #(6.9)
+                    
+                    # update lagrange polynomial
+                    new_lpolynomials = []
+                    for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials):
+                        
+                        if j == pindex:
+                            function = Function(f'lambda_{i}', [self.input_symbols], [new_lpoly])                         
+                            new_lpolynomials.append(LagrangePolynomial(new_lpoly, function))
+                            # continue 
+                        
+                        else:
+                        
+                            _feval = Function(f'lambda_{i}', [self.input_symbols], [_lpoly.symbol])
+                            _new_lpoly = _lpoly.symbol - _feval(new_point)*new_lpoly #(6.10)
+                            
+                            function = Function(f'lambda_{i}', [self.input_symbols], [_new_lpoly]) 
+                            new_lpolynomials.append(LagrangePolynomial(_new_lpoly, function))
+                    
                     # create polynomials
-                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
-                    lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)       
+                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                    lpolynomials.initialize(y=new_y, f=None, tr_radius=tr_radius, lpolynomials=new_lpolynomials)
+        
+                    # # create polynomials
+                    # lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
+                    # lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)       
                     
                     # save polynomial with the smallest poisedness
                     if Lambda < curr_Lambda:
