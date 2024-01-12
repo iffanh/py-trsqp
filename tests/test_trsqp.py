@@ -239,7 +239,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-12
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
+        tr = tq.TrustRegionSQPFilter(x0=[2.5,2.0], 
                                     k=6,
                                     cf=ackley, 
                                     ub=5.0,

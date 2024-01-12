@@ -3,7 +3,7 @@ import casadi as ca
 from typing import Tuple
 
 from .model_manager import ModelManager
-from .TR_exceptions import TRQPIncompatible, EndOfAlgorithm
+from .TR_exceptions import TRQPIncompatible, EndOfAlgorithm, RestorationStepFailed
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -180,36 +180,30 @@ class TRQP():
         data = models.m_cf.model.y
         center = data[:,0]
         
-        max_iter = 100
-        iteration = 0
         is_success = False
-        while iteration < max_iter and not is_success:
-            # EXPERIMENTAL
             
-            # tr radius as input bound      
-            ubx = np.min((center + radius, ub), axis=0) 
-            lbx = np.max((center - radius, lb), axis=0)
-            lbx[lbx > ubx] = ubx[lbx > ubx]
-            
-            nlp = {
-                'x': input_symbols,
-                'f': models.m_viol.symbol
-            }
-            
-            opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
-            
-            solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
-            # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
-            sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx)
-            if solver.stats()['success']:
-                is_success = True
-                pass
-            else:
-                # raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
-                print(f"Next solution point might not be totally feasible")
-                pass
-            
-            radius = radius/1.1
-            iteration = iteration + 1
+        # tr radius as input bound      
+        ubx = np.min((center + radius, ub), axis=0) 
+        lbx = np.max((center - radius, lb), axis=0)
+        lbx[lbx > ubx] = ubx[lbx > ubx]
+        
+        nlp = {
+            'x': input_symbols,
+            'f': models.m_viol.symbol
+        }
+        
+        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
+        
+        solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
+        # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
+        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx)
+        if solver.stats()['success']:
+            is_success = True
+            pass
+        else:
+            pass
+        
+        if not is_success:
+            raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
         
         return sol, radius

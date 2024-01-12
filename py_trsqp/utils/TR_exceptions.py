@@ -33,3 +33,6 @@ class IncorrectInputException(Exception):
 
 class FailedSimulation(Exception):
     pass
+
+class RestorationStepFailed(Exception):
+    pass
