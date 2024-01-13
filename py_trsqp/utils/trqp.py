@@ -147,25 +147,21 @@ class TRQP():
         # opts = {"error_on_fail": True, "verbose": True}
         opts = {'ipopt.print_level':2, 'print_time':0, 'ipopt.sb': 'yes'}
         
-        # solve TRQP problem
-        solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
-        # sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
-        sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
-        is_compatible = True
         try:
-            if not solver.stats()['success']:
-                for i in range(1, data.shape[1]):
-                    #check constraints
-                    c = ca.Function(f'm_f', [input_symbols], [*g])
-                    center = data[:,i]
+            # solve TRQP problem
+            solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
+            # sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+            sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+            is_compatible = True
                     
-                    sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
-                    if solver.stats()['success']:
-                        break            
-                    
-                if solver.stats()['return_status'] == "Infeasible_Problem_Detected":
-                    raise TRQPIncompatible(f"TRQP is incompatible. Invoke restoration step")
-            
+            if solver.stats()['return_status'] == "Solve_Succeeded":
+                pass
+                
+            else:
+                print(f"IPOPT message: {solver.stats()}")
+                raise TRQPIncompatible(f"Solution not found. Invoking restoration step")
+                
+                
         except TRQPIncompatible:
             sol, radius = self.invoke_restoration_step(models, ub, lb, radius)
             is_compatible = False
