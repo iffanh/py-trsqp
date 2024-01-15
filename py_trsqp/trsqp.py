@@ -202,8 +202,8 @@ class TrustRegionSQPFilter():
         self.zero_flags = x0 == 0.0
         
         x0 = self.norm(x0)
-        self.ub = self.norm(np.array(self.ub))
-        self.lb = self.norm(np.array(self.lb))
+        self.ubt = self.norm(np.array(self.ub))
+        self.lbt = self.norm(np.array(self.lb))
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
@@ -229,15 +229,41 @@ class TrustRegionSQPFilter():
     def transform_functions(self, f:callable):
         return lambda x: f(self.denorm(x))
     
-    def norm(self, x:np.ndarray):
-        a = copy.copy(x)
-        a[~self.zero_flags] = x[~self.zero_flags]/np.abs(self.xn[~self.zero_flags])
-        return a
+    # def norm(self, x:np.ndarray):
+    #     a = copy.copy(x)
+    #     a[~self.zero_flags] = x[~self.zero_flags]/np.abs(self.xn[~self.zero_flags])
+    #     return a
     
-    def denorm(self, x:np.ndarray):
-        a = copy.copy(x)
-        a[~self.zero_flags] = np.multiply(x[~self.zero_flags],np.abs(self.xn[~self.zero_flags]))
-        return a
+    # def denorm(self, x:np.ndarray):
+    #     a = copy.copy(x)
+    #     a[~self.zero_flags] = np.multiply(x[~self.zero_flags],np.abs(self.xn[~self.zero_flags]))
+    #     return a
+    
+    def norm(self, x:np.ndarray):
+        
+        xt = []
+        for i, xi in enumerate(x):
+            xci = self.xn[i]
+            if xi > xci:
+                xti = (xi - xci)/(self.ub[i] - xci)
+            else:
+                xti = (xi - xci)/(xci - self.lb[i])
+            xt.append(xti)
+            
+        return np.array(xt)
+    
+    def denorm(self, xt:np.ndarray):
+        
+        x = []
+        for i, xti in enumerate(xt):
+            xci = self.xn[i]
+            if xti > 0:
+                xi = xti*(self.ub[i] - xci) + xci
+            else:
+                xi = xti*(xci - self.lb[i]) + xci
+            x.append(xi)
+            
+        return np.array(x)
     
     def __str__(self) -> str:
         return f"TrustRegionSQPFilter(n_eqcs={self.n_eqcs}, n_ineqcs={self.n_ineqcs})"
@@ -444,7 +470,7 @@ class TrustRegionSQPFilter():
 
     def solve_TRQP(self, models:ModelManager, radius:float) -> Tuple[np.ndarray, float, bool]:
         solver = self.opts["solver"]
-        trqp_mod = TRQP(models=models, ub=self.ub, lb=self.lb, radius=radius, solver=solver)
+        trqp_mod = TRQP(models=models, ub=self.ubt, lb=self.lbt, radius=radius, solver=solver)
         sol = trqp_mod.sol.full()[:,0]
         return sol, trqp_mod.radius, trqp_mod.is_compatible
     

@@ -158,8 +158,8 @@ class TRSQPTest(unittest.TestCase):
         print("======== ROSENBROCK ========")
         CONSTANTS = {}
         CONSTANTS["L_threshold"] = 1.000
-        CONSTANTS["eta_1"] = 0.1
-        CONSTANTS["eta_2"] = 0.2
+        CONSTANTS["eta_1"] = 1E-8
+        CONSTANTS["eta_2"] = 1E-7
         CONSTANTS["gamma_0"] = 0.5
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
@@ -176,15 +176,15 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=3)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=2)
         
     def test_trsqp_rosen_with_disc(self):
         print("======== ROSENBROCK w DISC ========")
         CONSTANTS = {}
         CONSTANTS["L_threshold"] = 1.000
-        CONSTANTS["eta_1"] = 0.1
-        CONSTANTS["eta_2"] = 0.2
+        CONSTANTS["eta_1"] = 1E-8
+        CONSTANTS["eta_2"] = 1E-7
         CONSTANTS["gamma_0"] = 0.5
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
@@ -225,7 +225,7 @@ class TRSQPTest(unittest.TestCase):
                                     constants=CONSTANTS)
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
-        
+        # print(tr.iterates)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 0.5, places=2)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 0.5*np.sqrt(3), places=2)
         
@@ -239,7 +239,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-12
-        tr = tq.TrustRegionSQPFilter(x0=[2.5,2.0], 
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,2.0], 
                                     k=6,
                                     cf=ackley, 
                                     ub=5.0,

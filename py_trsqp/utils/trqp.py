@@ -135,6 +135,7 @@ class TRQP():
         # tr radius as input bound      
         ubx = np.min((center + radius, ub), axis=0) 
         lbx = np.max((center - radius, lb), axis=0)
+
         lbx[lbx > ubx] = ubx[lbx > ubx]
         
         # construct NLP problem
@@ -145,7 +146,8 @@ class TRQP():
         }
 
         # opts = {"error_on_fail": True, "verbose": True}
-        opts = {'ipopt.print_level':2, 'print_time':0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level':2, 'print_time':0, 'ipopt.sb': 'yes', 
+                'ipopt.honor_original_bounds': 'yes'}
         
         try:
             # solve TRQP problem
@@ -188,7 +190,8 @@ class TRQP():
             'f': models.m_viol.symbol
         }
         
-        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
+        opts = {'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes',
+                'ipopt.honor_original_bounds': 'yes'}
         
         solver = ca.nlpsol('TRQP_restoration', 'ipopt', nlp, opts)
         # sol = solver(x0=center+(radius/100), ubx=ubx, lbx=lbx)
