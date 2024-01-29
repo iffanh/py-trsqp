@@ -99,6 +99,22 @@ class TRSQPTest(unittest.TestCase):
         for t in tr.iterates:
             self.assertLessEqual(t['number_of_function_calls'], 6)
         
+    def test_trsqp_simple_bound(self):
+        print("======== SIMPLE BUDGET with BOUND ========")
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
+                                    k=6,
+                                    cf=simple,
+                                    ub=-1.9,
+                                    lb=-5.0,
+                                    eqcs=[], 
+                                    ineqcs=[],
+                                    opts={'solver': 'ipopt', 'budget': 100}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=50)
+        # print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        self.assertLessEqual(tr.iterates[-1]['y_curr'][0], -1.9)
+        self.assertLessEqual(tr.iterates[-1]['y_curr'][1], -1.9)
+        
     def test_trsqp_simple_budget(self):
         print("======== SIMPLE BUDGET ========")
         tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
@@ -114,7 +130,6 @@ class TRSQPTest(unittest.TestCase):
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
         self.assertEqual(tr.termination_status, 'Budget Exceeded')
-        # self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
             
     def test_trsqp_simple(self):
         print("======== SIMPLE ========")
@@ -209,12 +224,12 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS = {}
         CONSTANTS["L_threshold"] = 1.000
         CONSTANTS["eta_1"] = 1E-8
-        CONSTANTS["eta_2"] = 1E-2
+        CONSTANTS["eta_2"] = 0.2
         CONSTANTS["gamma_0"] = 0.5
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["init_radius"] = 0.5
-        CONSTANTS["stopping_radius"] = 1E-12
+        CONSTANTS["stopping_radius"] = 1E-10
         tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0], 
                                     k=6,
                                     cf=rosen, 
@@ -226,7 +241,7 @@ class TRSQPTest(unittest.TestCase):
                                     constants=CONSTANTS)
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
-        # print(tr.iterates)
+
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 0.5, places=2)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 0.5*np.sqrt(3), places=2)
         

@@ -376,15 +376,46 @@ class TrustRegionSQPFilter():
         triples.sort(key=lambda x:(x[0], x[1], x[2]), reverse=True)
         sorted_index = [ind[3] for ind in triples]
         
-        Y = Y[:, sorted_index]
-        fY_cf = fY_cf[sorted_index]
+        # Y = Y[:, sorted_index]
+        # fY_cf = fY_cf[sorted_index]
         
-        fYs_eq = [f[sorted_index] for f in fYs_eq]
-        fYs_ineq = [f[sorted_index] for f in fYs_ineq]
+        # fYs_eq = [f[sorted_index] for f in fYs_eq]
+        # fYs_ineq = [f[sorted_index] for f in fYs_ineq]
         
-        v[:] = [v[i] for i in sorted_index]
-        v_eq[:] = [v_eq[i] for i in sorted_index]
-        v_ineq[:] = [v_ineq[i] for i in sorted_index]
+        # v[:] = [v[i] for i in sorted_index]
+        # v_eq[:] = [v_eq[i] for i in sorted_index]
+        # v_ineq[:] = [v_ineq[i] for i in sorted_index]
+        
+        ## any points that violate the bounds should not be picked as the "best" points
+        ## this could happen due to the violation in bound from resampling of points
+        
+        and_check = []
+        for j in range(Y.shape[1]):
+            lbt_check = all(self.lbt <= Y[:,j])
+            ubt_check = all(self.ubt >= Y[:,j])
+            check = np.logical_and(lbt_check, ubt_check)
+            and_check.append(check)        
+                
+        good_sorted_index = []
+        bad_sorted_index = []
+        for index in sorted_index:
+            
+            if and_check[index]: #if lb <= y <= ub
+                good_sorted_index.append(index)
+            else: # otherwise
+                bad_sorted_index.append(index)
+                
+        new_sorted_index = good_sorted_index + bad_sorted_index
+            
+        Y = Y[:, new_sorted_index]
+        fY_cf = fY_cf[new_sorted_index]
+        
+        fYs_eq = [f[new_sorted_index] for f in fYs_eq]
+        fYs_ineq = [f[new_sorted_index] for f in fYs_ineq]
+        
+        v[:] = [v[i] for i in new_sorted_index]
+        v_eq[:] = [v_eq[i] for i in new_sorted_index]
+        v_ineq[:] = [v_ineq[i] for i in new_sorted_index]
         
         return Y, fY_cf, fYs_eq, fYs_ineq, v, v_eq, v_ineq
     
@@ -515,7 +546,29 @@ class TrustRegionSQPFilter():
                 
                 new_Y = new_Y[:, indices_1]
                 new_Y = np.concatenate([new_Y, y_next[:, np.newaxis]], axis=1)
+
+        and_check = []
+        for j in range(new_Y.shape[1]):
+            lbt_check = all(self.lbt <= new_Y[:,j])
+            ubt_check = all(self.ubt >= new_Y[:,j])
+            check = np.logical_and(lbt_check, ubt_check)
+            and_check.append(check)        
+                
+        good_sorted_index = []
+        bad_sorted_index = []
+        # for index in indices_1:
+        for index in range(new_Y.shape[1]):
             
+            if and_check[index]: #if lb <= y <= ub
+                good_sorted_index.append(index)
+            else: # otherwise
+                bad_sorted_index.append(index)
+                
+        new_sorted_index = good_sorted_index + bad_sorted_index
+            
+        new_Y = new_Y[:, new_sorted_index]
+
+                
         niter = 1
         
         if it_code in []: 
@@ -649,7 +702,6 @@ class TrustRegionSQPFilter():
                 neval = iterates['number_of_function_calls']
                 iterates["it_code"] = it_code
                 
-                
                 #Inform user
                 if f_curr is not None:
                     print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
@@ -741,8 +793,7 @@ class TrustRegionSQPFilter():
                         it_code = 6
                         Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                         need_model_improvement = True
-                        
-                        
+                            
                 else:
                     fy_curr = self.models.m_cf.model.f[0]
                     v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
@@ -753,7 +804,6 @@ class TrustRegionSQPFilter():
                     need_model_improvement = True
                     need_rebuild = False
                     
-            
                 if k == max_iter - 1:
                     exit_code = 'Maximum iteration'
             
