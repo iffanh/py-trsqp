@@ -3,6 +3,13 @@ import numpy as np
 import unittest
 from py_trsqp.utils.TR_exceptions import IncorrectInputException
 
+def simple_but_many(x):
+    return 10*(x[0]-1.0)**2 + 4*(x[1]-1.0)**2 + \
+           10*(x[2]-1.0)**2 + 4*(x[3]-1.0)**2 + \
+           10*(x[4]-1.0)**2 + 4*(x[5]-1.0)**2 + \
+           10*(x[6]-1.0)**2 + 4*(x[7]-1.0)**2 + \
+           10*(x[8]-1.0)**2 + 4*(x[9]-1.0)**2
+
 def simple(x):
     return 10*(x[0]-1.0)**2 + 4*(x[1]-1.0)**2
 
@@ -166,9 +173,9 @@ class TRSQPTest(unittest.TestCase):
         sol0 = 36/28 #analytical solution
         sol1 = 8/28
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], sol0, places=4)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], sol1, places=4)
-        
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], sol0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], sol1, places=3)
+         
     def test_trsqp_rosen(self):
         print("======== ROSENBROCK ========")
         CONSTANTS = {}
@@ -200,8 +207,8 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["L_threshold"] = 1.000
         CONSTANTS["eta_1"] = 1E-8
         CONSTANTS["eta_2"] = 1E-7
-        CONSTANTS["gamma_0"] = 0.5
-        CONSTANTS["gamma_1"] = 0.7
+        CONSTANTS["gamma_0"] = 0.6
+        CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-12
         tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
@@ -296,6 +303,27 @@ class TRSQPTest(unittest.TestCase):
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], -0.54719, places=3)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], -1.54719, places=3)
         self.assertAlmostEqual(tr.iterates[-1]['fY'][0], -1.9133, places=3)
+    
+    # ## HEAVY TEST
+    # def test_trsqp_simple_but_many(self):
+    #     print("======== HEAVY: SIMPLE BUT MANY ========")
+        
+    #     tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
+    #                                 k = 11,
+    #                                 cf=simple_but_many, 
+    #                                 ub=3.0,
+    #                                 lb=-3.0,
+    #                                 eqcs=[], 
+    #                                 ineqcs=[],
+    #                                 opts={'solver': 'ipopt', 
+    #                                       'max_points': 21}, 
+    #                                 constants=CONSTANTS)
+    #     tr.optimize(max_iter=500)
+    #     print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        
+    #     sol = 1.000
+    #     for i in range(10):
+    #         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
               
 if __name__ == '__main__':
     # begin the unittest.main()

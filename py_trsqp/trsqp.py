@@ -207,7 +207,8 @@ class TrustRegionSQPFilter():
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
-        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0], L=self.constants['L_threshold'])        
+        # self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0], L=self.constants['L_threshold'])        
+        self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=2, d=x0.shape[0], L=self.constants['L_threshold'])
         
         ## Transform functions
         cf = self.transform_functions(cf)
@@ -215,29 +216,11 @@ class TrustRegionSQPFilter():
         eqcs = [self.transform_functions(eqc) for eqc in eqcs]
         ineqcs = [self.transform_functions(ineqc) for ineqc in ineqcs]
         
-        # # add bounds to ineqcs
-        # for i in range(len(self.ub)):
-        #     bound_f = lambda x, i=i: self.ub[i] - x[i]
-        #     ineqcs.append(self.transform_functions(bound_f))
-            
-        #     bound_f = lambda x, i=i: x[i] - self.lb[i]
-        #     ineqcs.append(self.transform_functions(bound_f))
-        
         self.sm = SimulationManager(cf, eqcs, ineqcs) # Later this will be refactored for reservoir simulation
         self.input_symbols = ca.SX.sym('x', x0.shape[0])
     
     def transform_functions(self, f:callable):
         return lambda x: f(self.denorm(x))
-    
-    # def norm(self, x:np.ndarray):
-    #     a = copy.copy(x)
-    #     a[~self.zero_flags] = x[~self.zero_flags]/np.abs(self.xn[~self.zero_flags])
-    #     return a
-    
-    # def denorm(self, x:np.ndarray):
-    #     a = copy.copy(x)
-    #     a[~self.zero_flags] = np.multiply(x[~self.zero_flags],np.abs(self.xn[~self.zero_flags]))
-    #     return a
     
     def norm(self, x:np.ndarray):
         
