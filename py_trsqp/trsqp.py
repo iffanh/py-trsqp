@@ -209,7 +209,7 @@ class TrustRegionSQPFilter():
         rad = constants['init_radius']*1            
         # self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0], L=self.constants['L_threshold'])        
         self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=2, d=x0.shape[0], L=self.constants['L_threshold'])
-        
+
         ## Transform functions
         cf = self.transform_functions(cf)
         
@@ -609,7 +609,8 @@ class TrustRegionSQPFilter():
                 if need_rebuild:
                     
                     center = Y[:, [0]]
-                    new_y = center + (Y-center)*radius 
+                    # new_y = center + (Y-center)*radius 
+                    new_y = center + radius*generate_uniform_sample_nsphere(k=2, d=Y.shape[0], L=self.constants['L_threshold'])
                     need_rebuild = False
                             
                 elif need_model_improvement:

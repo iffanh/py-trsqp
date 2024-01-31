@@ -160,7 +160,7 @@ class TRQP():
                 pass
                 
             else:
-                print(f"IPOPT message: {solver.stats()}")
+                # print(f"IPOPT message: {solver.stats()}")
                 raise TRQPIncompatible(f"Solution not found. Invoking restoration step")
                 
                 
