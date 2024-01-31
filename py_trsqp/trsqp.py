@@ -715,10 +715,8 @@ class TrustRegionSQPFilter():
                     print(f"Point already exist : {e}. Try to reduce poisedness threshold")
                     exit_code = 'Redundant point'
                     need_model_improvement = True
+                    self.is_trqp_compatible = False
                     it_code = 8
-                    self.iterates.append(iterates)
-                    break
-                
                 
                 self.iterates.append(iterates)
                     
