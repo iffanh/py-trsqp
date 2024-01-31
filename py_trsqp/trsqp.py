@@ -198,7 +198,8 @@ class TrustRegionSQPFilter():
         ## Transform input and bounds
         self.n_points = 1
         x0 = np.array(x0)
-        self.xn = x0*1
+        # self.xn = x0*1
+        self.xn = (np.array(self.ub) + np.array(self.lb))/2
         self.zero_flags = x0 == 0.0
         
         x0 = self.norm(x0)
@@ -784,7 +785,7 @@ class TrustRegionSQPFilter():
                             Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                             need_model_improvement = True
                     else:
-                        radius = self.constants['gamma_0']*radius
+                        # radius = self.constants['gamma_0']*radius
                         it_code = 13
                         Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                         need_rebuild = True
