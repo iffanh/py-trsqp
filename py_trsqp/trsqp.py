@@ -725,6 +725,8 @@ class TrustRegionSQPFilter():
                     except FailedSimulation as e:
                         is_acceptable_in_the_filter = False
                         is_next_point_good = False
+                        fy_next = None
+                        v_next = None
                         pass
                     
                     if is_next_point_good:
