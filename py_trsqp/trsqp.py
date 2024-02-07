@@ -14,7 +14,7 @@ from .utils.lagrange_polynomial import LagrangePolynomials
 
 class TrustRegionSQPFilter():
     
-    def __init__(self, x0:list, k:int, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt", 'budget': 1000}) -> None:
+    def __init__(self, x0:list, cf:callable, ub:Union[List[float], float]=np.inf, lb:Union[List[float], float]=-np.inf, eqcs:List[callable]=[], ineqcs:List[callable]=[], constants:dict=dict(), opts:dict={'solver': "ipopt", 'budget': 1000}) -> None:
         
         def _check_constants(constants:dict) -> dict:
             
@@ -640,12 +640,7 @@ class TrustRegionSQPFilter():
                         
                 else:
                     new_y = Y*1
-                    
                 
-                # check whether the upcoming simulation exceeds the budget
-                if self.opts['budget'] < self.sm.cf.number_of_function_calls:
-                    exit_code = 'Budget Exceeded'
-                    break
                     
                 ## run simulation and build models
                 try:
@@ -717,6 +712,8 @@ class TrustRegionSQPFilter():
                     need_model_improvement = True
                     self.is_trqp_compatible = False
                     it_code = 8
+                    y_next = np.mean(Y, axis=1)
+                    # how to avoid this???
                 
                 self.iterates.append(iterates)
                     
@@ -783,12 +780,13 @@ class TrustRegionSQPFilter():
                             Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                             need_model_improvement = True
                     else:
-                        # radius = self.constants['gamma_0']*radius
+                        radius = self.constants['gamma_0']*radius
                         it_code = 13
                         Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                         need_rebuild = True
                             
                 else:
+                    radius = self.constants['gamma_0']*radius
                     fy_curr = self.models.m_cf.model.f[0]
                     v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                     _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
@@ -796,11 +794,16 @@ class TrustRegionSQPFilter():
                     it_code = 7
                     Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
                     need_model_improvement = True
-                    need_rebuild = False
+                    # need_rebuild = False
                     
                 if k == max_iter - 1:
                     exit_code = 'Maximum iteration'
-            
+
+                # check whether the upcoming simulation exceeds the budget
+                if self.opts['budget'] < self.sm.cf.number_of_function_calls:
+                    exit_code = 'Budget Exceeded'
+                    break
+                
             try:
                 tmp = exit_code
             except:

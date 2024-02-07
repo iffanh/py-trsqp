@@ -51,32 +51,28 @@ class TRSQPTest(unittest.TestCase):
     def test_trsqp_exceptions(self):
         # len(ub) != len(x0)
         with self.assertRaises(IncorrectInputException):
-            tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0], 
-                                        k=6,
+            tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0],
                                         cf=simple,
                                         ub=[3], 
                                         lb=[-1])
             
         # len(ub) != len(lb)
         with self.assertRaises(IncorrectInputException):
-            tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0], 
-                                        k=6,
+            tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0],
                                         cf=simple,
                                         ub=[3], 
                                         lb=[-1, 1])
             
         # type(ub) != type(lb)
         with self.assertRaises(IncorrectInputException):
-            tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0], 
-                                        k=6,
+            tr = tq.TrustRegionSQPFilter(x0=[-2.5,-1.0],
                                         cf=simple,
                                         ub=3, 
                                         lb=[-1])
     
     def test_trsqp_simple_max_points(self):
         print("======== SIMPLE MAX POINTS 1 ========")
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=simple,
                                     ub=3.0,
                                     lb=-3.0,
@@ -91,8 +87,7 @@ class TRSQPTest(unittest.TestCase):
             self.assertLessEqual(t['number_of_function_calls'], 3)
             
         print("======== SIMPLE MAX POINTS 2 ========")
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=simple,
                                     ub=3.0,
                                     lb=-3.0,
@@ -108,8 +103,7 @@ class TRSQPTest(unittest.TestCase):
         
     def test_trsqp_simple_bound(self):
         print("======== SIMPLE BUDGET with BOUND ========")
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=simple,
                                     ub=-1.9,
                                     lb=-5.0,
@@ -124,8 +118,7 @@ class TRSQPTest(unittest.TestCase):
         
     def test_trsqp_simple_budget(self):
         print("======== SIMPLE BUDGET ========")
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=simple,
                                     ub=3.0,
                                     lb=-3.0,
@@ -140,8 +133,7 @@ class TRSQPTest(unittest.TestCase):
             
     def test_trsqp_simple(self):
         print("======== SIMPLE ========")
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=simple,
                                     ub=3.0,
                                     lb=-3.0,
@@ -158,8 +150,7 @@ class TRSQPTest(unittest.TestCase):
     def test_trsqp_simple1(self):
         print("======== SIMPLE w CONSTRAINT ========")
         
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=simple, 
                                     ub=3.0,
                                     lb=-3.0,
@@ -180,14 +171,13 @@ class TRSQPTest(unittest.TestCase):
         print("======== ROSENBROCK ========")
         CONSTANTS = {}
         CONSTANTS["L_threshold"] = 1.000
-        CONSTANTS["eta_1"] = 1E-8
-        CONSTANTS["eta_2"] = 1E-7
-        CONSTANTS["gamma_0"] = 0.5
-        CONSTANTS["gamma_1"] = 0.7
+        CONSTANTS["eta_1"] = 1E-12
+        CONSTANTS["eta_2"] = 1E-11
+        CONSTANTS["gamma_0"] = 0.6
+        CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-12
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=rosen, 
                                     ub=6.0,
                                     lb=-6.0,
@@ -211,8 +201,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-12
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=rosen, 
                                     ub=6.0,
                                     lb=-6.0,
@@ -237,8 +226,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["init_radius"] = 0.5
         CONSTANTS["stopping_radius"] = 1E-10
-        tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0],
                                     cf=rosen, 
                                     ub=[0.5, 1000],
                                     lb=[-0.5, -1000],
@@ -262,8 +250,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-12
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,2.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[-2.5,2.0],
                                     cf=ackley, 
                                     ub=5.0,
                                     lb=-5.0,
@@ -288,8 +275,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["init_radius"] = 1.0
         CONSTANTS["stopping_radius"] = 1E-12
-        tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[1.0,1.0], 
-                                    k=6,
+        tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[1.0,1.0],
                                     cf=mccormick, 
                                     ub=[4, 4],
                                     lb=[-1.5, -3],
@@ -304,26 +290,25 @@ class TRSQPTest(unittest.TestCase):
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], -1.54719, places=3)
         self.assertAlmostEqual(tr.iterates[-1]['fY'][0], -1.9133, places=3)
     
-    # ## HEAVY TEST
-    # def test_trsqp_simple_but_many(self):
-    #     print("======== HEAVY: SIMPLE BUT MANY ========")
+    ## HEAVY TEST
+    def test_trsqp_simple_but_many(self):
+        print("======== HEAVY: SIMPLE BUT MANY ========")
         
-    #     tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
-    #                                 k = 11,
-    #                                 cf=simple_but_many, 
-    #                                 ub=3.0,
-    #                                 lb=-3.0,
-    #                                 eqcs=[], 
-    #                                 ineqcs=[],
-    #                                 opts={'solver': 'ipopt', 
-    #                                       'max_points': 21}, 
-    #                                 constants=CONSTANTS)
-    #     tr.optimize(max_iter=500)
-    #     print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
+                                    cf=simple_but_many, 
+                                    ub=3.0,
+                                    lb=-3.0,
+                                    eqcs=[], 
+                                    ineqcs=[],
+                                    opts={'solver': 'ipopt', 
+                                          'max_points': 21}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=500)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-    #     sol = 1.000
-    #     for i in range(10):
-    #         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
+        sol = 1.000
+        for i in range(10):
+            self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
               
 if __name__ == '__main__':
     # begin the unittest.main()

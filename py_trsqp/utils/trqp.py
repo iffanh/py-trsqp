@@ -202,7 +202,7 @@ class TRQP():
         else:
             pass
         
-        if not is_success:
-            raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
+        # if not is_success:
+        #     raise EndOfAlgorithm(f"Impossible to compute restoration step. current iterate: {center}. 'best solution' = {sol['x']}")
         
         return sol, radius
