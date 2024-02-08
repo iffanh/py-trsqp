@@ -584,7 +584,18 @@ class TrustRegionSQPFilter():
             niter = niter + 1
         
         return new_Y
+    
+    def _update_radius(self, nd:int, nx:int, factor:float, radius:float):
 
+        if nx < nd + 1: 
+        # we don't punish bad prediction because we don't have sufficient points for linear model
+            if factor > 1:
+                return factor*radius
+            else:
+                return radius
+        else:
+            return factor*radius
+    
     def optimize(self, max_iter=15):
         
         need_model_improvement = False
@@ -743,7 +754,7 @@ class TrustRegionSQPFilter():
                             rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)
                             if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2): 
                                 if rho < self.constants['eta_1']:
-                                    radius = self.constants['gamma_1']*radius
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
                                     need_model_improvement = True
                                     it_code = 1
                                     
@@ -751,10 +762,10 @@ class TrustRegionSQPFilter():
                                     
                                 else:
                                     if rho >= self.constants['eta_2']:
-                                        radius = radius*self.constants['gamma_2']
+                                        radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
                                         it_code = 2
                                     else:
-                                        radius = radius*self.constants['gamma_1']
+                                        radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
                                         it_code = 3
                                     
                                     Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
@@ -763,13 +774,13 @@ class TrustRegionSQPFilter():
                                 self.filter_SQP.add_to_filter((fy_next, v_next))
                                     
                                 if rho >= self.constants['eta_2']:
-                                    radius = radius*self.constants['gamma_2']
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
                                     it_code = 4
                                     Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                                     need_model_improvement = False
                                     
                                 else:
-                                    radius = radius*self.constants['gamma_1']
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
                                     it_code = 5
                                     Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                                     need_model_improvement = True
@@ -777,18 +788,18 @@ class TrustRegionSQPFilter():
                             pass
                         
                         else:
-                            radius = self.constants['gamma_0']*radius
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
                             it_code = 6
                             Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                             need_model_improvement = True
                     else:
-                        radius = self.constants['gamma_0']*radius
+                        radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
                         it_code = 13
                         Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                         need_rebuild = True
                             
                 else:
-                    radius = self.constants['gamma_0']*radius
+                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
                     fy_curr = self.models.m_cf.model.f[0]
                     v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                     _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
