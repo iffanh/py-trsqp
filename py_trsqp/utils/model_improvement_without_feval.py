@@ -41,7 +41,7 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         if curr_lambda < L:
             # enough
             new_y = lpolynomials.y*1
-            print(f"enough. curr_lambda = {curr_lambda}")
+            # print(f"enough. curr_lambda = {curr_lambda}")
             break
         
         pindex = poisedness.index
