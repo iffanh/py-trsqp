@@ -113,8 +113,8 @@ class TRSQPTest(unittest.TestCase):
                                     constants=CONSTANTS)
         tr.optimize(max_iter=50)
         # print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
-        self.assertLessEqual(tr.iterates[-1]['y_curr'][0], -1.9)
-        self.assertLessEqual(tr.iterates[-1]['y_curr'][1], -1.9)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], -1.9)
+        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], -1.9)
         
     def test_trsqp_simple_budget(self):
         print("======== SIMPLE BUDGET ========")
@@ -176,7 +176,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_0"] = 0.6
         CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
-        CONSTANTS["stopping_radius"] = 1E-12
+        CONSTANTS["stopping_radius"] = 1E-16
         tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=rosen, 
                                     ub=6.0,
@@ -200,7 +200,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_0"] = 0.6
         CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
-        CONSTANTS["stopping_radius"] = 1E-12
+        CONSTANTS["stopping_radius"] = 1E-16
         tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
                                     cf=rosen, 
                                     ub=6.0,

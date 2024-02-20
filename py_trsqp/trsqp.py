@@ -490,7 +490,6 @@ class TrustRegionSQPFilter():
         return sol, trqp_mod.radius, trqp_mod.is_compatible
     
     def change_point(self, models:ModelManager, Y:np.ndarray, y_next:np.ndarray, fy_next, v_next, radius:float, it_code:int) -> np.ndarray:
-            
         if fy_next is not None:
             # indices = list(range(self.violations.shape[0]))
             worst_f = models.m_cf.model.f.argsort()
@@ -645,14 +644,13 @@ class TrustRegionSQPFilter():
                         sg.improve_geometry()     
                         improved_model = sg.model
                         new_y = improved_model.y
-
+                        
                     else:
                         new_y = Y*1
-                        
+                                         
                 else:
                     new_y = Y*1
                 
-                    
                 ## run simulation and build models
                 try:
                     self.models = self.main_run(Y=new_y)
@@ -696,7 +694,7 @@ class TrustRegionSQPFilter():
                 
                 #Inform user
                 if f_curr is not None:
-                    print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.2e}, v= {v_curr:.2e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
+                    print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
                 else:
                     print(f"It. {k}: Failed. r= {radius:.2e}, prev. it_code= {it_code}, nevals= {neval}, ")
                     it_code = 10
@@ -742,7 +740,7 @@ class TrustRegionSQPFilter():
                     
                     if is_next_point_good:
                     
-                    # print(f"y_next, fy_next, v_next = {self.denorm(y_next)}, {fy_next}, {v_next}")
+                        # print(f"y_next, fy_next, v_next = {self.denorm(y_next)}, {fy_next}, {v_next}")
                     
                         if is_acceptable_in_the_filter:
                             v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
