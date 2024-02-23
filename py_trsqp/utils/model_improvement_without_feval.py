@@ -50,11 +50,7 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     
     print(f"Generating {k}-uniform points on the {d}-sphere ...")
     input_symbols = ca.SX.sym('x', d)
-    # start = time.time()
     samples = _generate_uniform_sample_nsphere(k-1, d)
-    # end = time.time()
-    # print(f"Elapsed time = {end - start}")
-    # samples = _generate_uniform_sample_nsphere(k, d)
 
     lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
     lpolynomials.initialize(y=samples, tr_radius=1.0)
@@ -70,7 +66,6 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         if curr_lambda < L:
             # enough
             new_y = lpolynomials.y*1
-            # print(f"enough. curr_lambda = {curr_lambda}")
             break
         
         pindex = poisedness.index
@@ -78,7 +73,7 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
         
         # copy values
         new_y = lpolynomials.y*1
-        
+                 
         # replace value
         new_y[:, pindex] = new_point
         lpoly = lpolynomials.lagrange_polynomials[pindex]
@@ -105,41 +100,13 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
                 function = Function(f'lambda_{i}', [input_symbols], [_new_lpoly]) 
                 new_lpolynomials.append(LagrangePolynomial(_new_lpoly, function))
         
-        
         # create polynomials
         lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
         lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0, lpolynomials=new_lpolynomials)
-            
-            # end = time.time()
-            # print(f"Elapsed time to replace a point = {end - start}")
-            
-                # # create polynomials
-                # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-                # lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)    
-        # else:
-        #     new_y = lpolynomials.y*1
-        #     poisedness = lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d))
-        #     curr_lambda = poisedness.max_poisedness()
+        
+    new_y = np.concatenate((np.zeros((d, 1)), new_y), axis=1)
 
-        
-        # print(f"before = {new_y}")
-        # print(f"poisedness = {curr_lambda}")
-        # if np.linalg.norm(new_y[:,0]) < 1E-8:
-        #     for j in range(1,k-1):
-        #         new_y[:,j] = new_y[:,j]/np.linalg.norm(new_y[:,j])
-                
-        # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        # lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
-        # for i in range(k-1):
-        #     print(f"OK Poisedness of the points on the surface of the {d}-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array(new_y[:,i])).max_poisedness()}")
-        
-        new_y = np.concatenate((np.zeros((d, 1)), new_y), axis=1)
-        
-        # lpolynomials = LagrangePolynomials(input_symbols=input_symbols, pdegree=2)
-        # lpolynomials.initialize(y=new_y, f=None, tr_radius=1.0)  
-        # print(f"Poisedness of the points on the surface of the {d}-sphere: {lpolynomials.poisedness(rad=1.0, center=np.array([0.0]*d)).max_poisedness()}")
-        # return lpolynomials.y
-        return new_y
+    return new_y
 
 class ModelImprovement:
     """ Class that responsible for improving the lagrange polynomial models based on the poisedness of set Y. 
@@ -165,28 +132,34 @@ class ModelImprovement:
         from casadi import Function
         
         for k in range(max_iter):
-                    
-        # for k in range(1):
             # Algorithm 6.3
             poisedness = lpolynomials.poisedness(rad=rad, center=center)
             Lambda = poisedness.max_poisedness()
 
             ## TODO: Any ideas on how to circumvent the replacement of the best point?
             pindex = poisedness.index
+            
             if pindex == 0:
-                tr_radius = lpolynomials.tr_radius*1
-                new_y = lpolynomials.y*1
-                
-                surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0], L=L)
-                # surface_points = generate_uniform_sample_nsphere(k=2*new_y.shape[0]+1, d=new_y.shape[0])
-                new_y = center[:, np.newaxis] + surface_points*tr_radius
-                
-                lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
-                lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
+            # if False:
+            
+                if np.abs(L - Lambda) <= 1E-5: # it's fine if it's very close
+                # if False:
+                    best_polynomial = lpolynomials
+                    curr_Lambda = Lambda*1
+                    break
+                else:
+                    tr_radius = lpolynomials.tr_radius*1
+                    new_y = lpolynomials.y*1
+                    
+                    surface_points = generate_uniform_sample_nsphere(k=new_y.shape[1], d=new_y.shape[0], L=L)
+                    new_y = center[:, np.newaxis] + surface_points*tr_radius
+                    
+                    lpolynomials = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
+                    lpolynomials.initialize(y=new_y, f=None, sort_type=sort_type, tr_radius=tr_radius)   
 
-                best_polynomial = lpolynomials
-                curr_Lambda = Lambda*1
-                break
+                    best_polynomial = lpolynomials
+                    curr_Lambda = Lambda*1
+                    break
             else:
                 if k == 0:
                     best_polynomial = lpolynomials
@@ -196,16 +169,13 @@ class ModelImprovement:
                 if Lambda > L:
                     
                     new_point = poisedness.point_to_max_poisedness()
-                    
                     # copy values
                     new_y = lpolynomials.y*1
                     tr_radius = lpolynomials.tr_radius*1
-                    
+            
                     # replace value
                     new_y[:, pindex] = new_point
-                    
                     lpoly = lpolynomials.lagrange_polynomials[pindex]
-        
                     ## Algorithm 6.1
                     if lpoly.feval(new_point) == 0:
                         raise Exception("Problem here")
@@ -219,7 +189,6 @@ class ModelImprovement:
                         if j == pindex:
                             function = Function(f'lambda_{j}', [self.input_symbols], [new_lpoly])                         
                             new_lpolynomials.append(LagrangePolynomial(new_lpoly, function))
-                            # continue 
                         
                         else:
                         
@@ -240,11 +209,11 @@ class ModelImprovement:
                     if Lambda < curr_Lambda:
 
                         curr_Lambda = Lambda*1
-                        
+
                         if curr_Lambda < L:
                             return lpolynomials
             
             if k == max_iter-1:
-                print(f"Could not construct polynomials with poisedness < {L} after {max_iter} iterations. Consider increasing the max_iter.") 
-
+                print(f"Could not construct polynomials with poisedness < {L} after {max_iter} iterations.") 
+                
         return best_polynomial
