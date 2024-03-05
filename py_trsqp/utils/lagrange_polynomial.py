@@ -175,7 +175,7 @@ class LagrangePolynomials:
         self.pdegree = pdegree
         self.input_symbols = input_symbols
         
-    def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'minimum', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
+    def initialize(self, y:np.ndarray, f:Optional[np.ndarray] = None, sort_type:str='function', interpolation_type:str = 'frobenius', lpolynomials:List[LagrangePolynomial] = None, tr_radius:float = None):
         """ This class should be able to generate lagrange polynomials given the samples
 
         Args:
@@ -231,24 +231,32 @@ class LagrangePolynomials:
         if lpolynomials is None:
             if interpolation_type == 'minimum':
                 self.lagrange_polynomials = self._build_lagrange_polynomials(self.polynomial_basis, self.y, self.input_symbols)
+                self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
             elif interpolation_type == 'frobenius':
                 # frobenius norm can only be used when the number of data points are between n+1 <= p <= 1/2 (n+1)(n+2)
                 
-                if self.N + 1 <= self.P and self.P <= 0.5*(self.N+1)*(self.N+2):
+                if self.N + 1 <= self.P and self.P < 0.5*(self.N+1)*(self.N+2):
                     self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.y, is_gen=False)
+                    self.lagrange_polynomials_normalized = self._build_lagrange_polynomials_frobenius((self.y - self.y[:,[0]])/self.tr_radius, is_gen=False)
                 else:
-                    raise Exception(f"Number of points must be between {self.N + 1} and {int(0.5*(self.N+1)*(self.N+2))}")
+                    # raise Exception(f"Number of points must be between {self.N + 1} and {int(0.5*(self.N+1)*(self.N+2))}")
+                    # print(f"Number of points should be between {self.N + 1} and {int(0.5*(self.N+1)*(self.N+2))}. Currently {self.P}")
+                    self.lagrange_polynomials = self._build_lagrange_polynomials(self.polynomial_basis, self.y, self.input_symbols)
+                    self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
 
             else:
                 raise Exception(f"Interpolation type of {interpolation_type} is not known. Try 'minimum' of 'frobenius'")
         else: # When lagrange polynomials is constructed manually
             self.lagrange_polynomials = lpolynomials
+            self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
         
         self.model_polynomial = self._build_model_polynomial(self.lagrange_polynomials, self.f, self.input_symbols)
+        self.model_polynomial_normalized = self._build_model_polynomial(self.lagrange_polynomials_normalized, self.f, self.input_symbols)
         if self.model_polynomial is None:
             self.gradient, self.Hessian = None, None
         else: 
-            self.gradient, self.Hessian = self._get_coefficients_from_expression(self.model_polynomial.symbol, self.input_symbols, self.pdegree)    
+            self.gradient, self.Hessian = self._get_coefficients_from_expression(self.model_polynomial.symbol, self.input_symbols, self.pdegree)
+            self.gradient_normalized, self.Hessian_normalized = self._get_coefficients_from_expression(self.model_polynomial_normalized.symbol, self.input_symbols, self.pdegree)    
         
         self.index_of_largest_lagrangian_norm = None
         
@@ -276,7 +284,7 @@ class LagrangePolynomials:
             float: Minimum poisedness of the given interpolation set
         """
         
-        return self._get_poisedness(self.lagrange_polynomials, rad, center)
+        return self._get_poisedness(self.lagrange_polynomials_normalized, 1, np.zeros(center.shape))
         
     def _get_poisedness(self, lagrange_polynomials:List[LagrangePolynomial], rad:float, center:np.ndarray) -> Poisedness:
     
@@ -288,13 +296,12 @@ class LagrangePolynomials:
         
         i = 0
         for lp in lagrange_polynomials:
-            max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)          
+            max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)        
             max_sols.append(max_sol)
             
             Lambdas.append(feval)
             
             if feval > Lambda:
-                
                 Lambda = np.abs(feval)
                 index = i
             
@@ -324,7 +331,10 @@ class LagrangePolynomials:
             gradient = ca.jacobian(expression, vertcat(input_symbols))
             Hessian = ca.jacobian(gradient, vertcat(input_symbols))
             Hessian = DM(Hessian).full()
-            Hessian = nearestPD(Hessian)
+            try:
+                Hessian = nearestPD(Hessian)
+            except np.linalg.LinAlgError:
+                pass
                 
             return (Function('gradient', [input_symbols], [gradient]), Hessian)
                 
@@ -429,14 +439,13 @@ class LagrangePolynomials:
         n = data_points.shape[0]
         basis_matrix_linear = basis_matrix[:, :n+1]
         basis_matrix_quadratic = basis_matrix[:, n+1:]
-
+        
         basis_vector_linear = basis_vector[:n+1, :]
         basis_vector_quadratic = basis_vector[n+1:, :]
 
         # Build matrix F (eq 5.7)
         matrix_A = mtimes(basis_matrix_quadratic, basis_matrix_quadratic.T)
         matrix_F = vertcat(horzcat(matrix_A, basis_matrix_linear), horzcat(basis_matrix_linear.T, 0*SX.eye(basis_matrix_linear.shape[1])))
-    
         try:
             matrix_F_inv = ca.inv(matrix_F)
         except:

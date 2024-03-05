@@ -4,7 +4,7 @@ import casadi as ca
 from typing import List, Tuple, Union
 from multiprocessing import Pool
 import copy
-from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, IncorrectInputException, FailedSimulation, IllPoisedModel
+from .utils.TR_exceptions import IncorrectConstantsException, EndOfAlgorithm, RedundantPoint, IncorrectInputException, FailedSimulation, IllPoisedModel, PoisednessIsZeroException
 from .utils.simulation_manager import SimulationManager
 from .utils.model_manager import SetGeometry, ModelManager, CostFunctionModel, EqualityConstraintModels, InequalityConstraintModels, ViolationModel
 from .utils.trqp import TRQP
@@ -208,9 +208,9 @@ class TrustRegionSQPFilter():
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
-        # self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0], L=self.constants['L_threshold'])        
+        # self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=x0.shape[0]+1, d=x0.shape[0], L=self.constants['L_threshold'])         
         self.dataset = x0[:, np.newaxis] + rad*generate_uniform_sample_nsphere(k=2, d=x0.shape[0], L=self.constants['L_threshold'])
-
+        
         ## Transform functions
         cf = self.transform_functions(cf)
         
@@ -576,7 +576,6 @@ class TrustRegionSQPFilter():
             if poisedness.index > 0:
                 new_Y = np.delete(new_Y, poisedness.index, axis=1)
             else:
-                # print("not deleting", poisedness.poisedness)
                 new_Y = np.delete(new_Y, new_Y.shape[1]-1, axis=1)
                 pass
             
@@ -622,7 +621,7 @@ class TrustRegionSQPFilter():
                     
                     center = Y[:, [0]]
                     # new_y = center + (Y-center)*radius 
-                    new_y = center + radius*generate_uniform_sample_nsphere(k=2, d=Y.shape[0], L=self.constants['L_threshold'])
+                    new_y = center + radius*generate_uniform_sample_nsphere(k=2*Y.shape[0]+1, d=Y.shape[0], L=self.constants['L_threshold'])
                     need_rebuild = False
                             
                 elif need_model_improvement:
@@ -634,12 +633,9 @@ class TrustRegionSQPFilter():
                     else: 
                         model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                         model.initialize(y=Y, tr_radius=radius)
-                        
-                    poisedness = model.poisedness(rad=radius, center=Y[:,0])
                     
-                    # print(f"poisedness.max_poisedness() = {poisedness.max_poisedness()}")
-                    if poisedness.max_poisedness() > self.constants['L_threshold']:
-                                
+                    poisedness = model.poisedness(rad=radius, center=Y[:,0])
+                    if poisedness.max_poisedness() > self.constants['L_threshold']:    
                         sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
                         sg.improve_geometry()     
                         improved_model = sg.model
@@ -660,12 +656,9 @@ class TrustRegionSQPFilter():
                     continue
                 
                 Y = self.models.m_cf.model.y*1
-                
-                
                 y_curr = Y[:,0]
                 f_curr = self.models.m_cf.model.f[0]
                 v_curr = self.violations[0]
-                
                 if k == 0:
                     
                     _fy = self.models.m_cf.model.f
@@ -806,7 +799,6 @@ class TrustRegionSQPFilter():
                     Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
                     need_model_improvement = True
                     # need_rebuild = False
-                    
                 if k == max_iter - 1:
                     exit_code = 'Maximum iteration'
 

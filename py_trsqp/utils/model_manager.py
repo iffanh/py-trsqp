@@ -121,6 +121,23 @@ class ViolationModel():
                 
             self.violations = np.array(self.violations)
 
+            # NORMALIZED
+            v = 0.0
+            for m in m_eqcs.models:
+                v = ca.fmax(v, ca.fabs(m.model.model_polynomial_normalized.symbol))
+        
+            for m in m_ineqcs.models:
+                v = ca.fmax(v, ca.fmax(0, -m.model.model_polynomial_normalized.symbol)) # TODO:ADHOC
+                
+            self.symbol_normalized = v
+            self.feval_normalized = ca.Function('Violation', [input_symbols], [self.symbol_normalized])
+            
+            self.violations_normalized = []
+            for i in range(Y.shape[1]):
+                self.violations_normalized.append(self.feval(Y[:,i]).full()[0][0])
+                
+            self.violations_normalized = np.array(self.violations_normalized)
+            
 class ModelManager():
     """
     Responsible for managing ALL the polynomial models

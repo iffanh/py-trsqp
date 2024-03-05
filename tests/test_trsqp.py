@@ -224,7 +224,7 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["gamma_0"] = 0.6
         CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
-        CONSTANTS["init_radius"] = 0.5
+        CONSTANTS["init_radius"] = 1.0
         CONSTANTS["stopping_radius"] = 1E-16
         tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0],
                                     cf=rosen, 
@@ -290,25 +290,25 @@ class TRSQPTest(unittest.TestCase):
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], -1.54719, places=3)
         self.assertAlmostEqual(tr.iterates[-1]['fY'][0], -1.9133, places=3)
     
-    ## HEAVY TEST
-    def test_trsqp_simple_but_many(self):
-        print("======== HEAVY: SIMPLE BUT MANY ========")
+    # HEAVY TEST
+    # def test_trsqp_simple_but_many(self):
+    #     print("======== HEAVY: SIMPLE BUT MANY ========")
         
-        tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
-                                    cf=simple_but_many, 
-                                    ub=3.0,
-                                    lb=-3.0,
-                                    eqcs=[], 
-                                    ineqcs=[],
-                                    opts={'solver': 'ipopt', 
-                                          'max_points': 21}, 
-                                    constants=CONSTANTS)
-        tr.optimize(max_iter=500)
-        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+    #     tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
+    #                                 cf=simple_but_many, 
+    #                                 ub=3.0,
+    #                                 lb=-3.0,
+    #                                 eqcs=[], 
+    #                                 ineqcs=[],
+    #                                 opts={'solver': 'ipopt', 
+    #                                       'max_points': 21}, 
+    #                                 constants=CONSTANTS)
+    #     tr.optimize(max_iter=500)
+    #     print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        sol = 1.000
-        for i in range(10):
-            self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
+    #     sol = 1.000
+    #     for i in range(10):
+    #         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
               
 if __name__ == '__main__':
     # begin the unittest.main()

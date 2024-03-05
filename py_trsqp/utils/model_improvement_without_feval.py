@@ -8,6 +8,7 @@ import time
 
 def generate_spanning_set(k, dim):
 
+    print(f"generate positive spanning set")
     arr = np.zeros((dim, dim))
     for i in range(dim):
         arr[:,i] = -1/dim
@@ -19,7 +20,7 @@ def generate_spanning_set(k, dim):
         v = C[:,i]
         vn -= v
         
-    Y = np.concatenate([C.T, [vn]]).T
+    Y = np.concatenate([C.T, [vn]]).T #dim + 1
     
     if k > dim + 2 and k <= 2*dim + 1:
         for i in range(k - dim - 2):
@@ -30,8 +31,12 @@ def generate_spanning_set(k, dim):
         for i in range(dim - k + 1):
             Y = Y[:, :-1]
             
-    elif k >= 2*dim + 2:
-        raise Exception()
+    else:
+        for i in range(1, dim + 1):
+            _v = -Y[:,[i]]
+            Y = np.concatenate([Y, _v], axis=1) # 2dim + 1
+    
+    Y = np.concatenate((np.zeros((dim, 1)), Y), axis=1)
     
     return Y
 
@@ -169,13 +174,16 @@ class ModelImprovement:
                 if Lambda > L:
                     
                     new_point = poisedness.point_to_max_poisedness()
+                    new_point = new_point*lpolynomials.tr_radius + center
+                    
                     # copy values
                     new_y = lpolynomials.y*1
                     tr_radius = lpolynomials.tr_radius*1
             
                     # replace value
                     new_y[:, pindex] = new_point
-                    lpoly = lpolynomials.lagrange_polynomials[pindex]
+                    lpoly = lpolynomials.lagrange_polynomials_normalized[pindex]
+                    
                     ## Algorithm 6.1
                     if lpoly.feval(new_point) == 0:
                         raise Exception("Problem here")
@@ -184,7 +192,7 @@ class ModelImprovement:
                     
                     # update lagrange polynomial
                     new_lpolynomials = []
-                    for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials):
+                    for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials_normalized):
                         
                         if j == pindex:
                             function = Function(f'lambda_{j}', [self.input_symbols], [new_lpoly])                         
