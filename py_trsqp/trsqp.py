@@ -558,7 +558,7 @@ class TrustRegionSQPFilter():
             max_points = (new_Y.shape[0] + 1)
         elif it_code in []:
             max_points = (2*new_Y.shape[0] + 1)
-        elif it_code in [1, 2, 3, 4, 5, 6, 7, 13]:
+        elif it_code in [1, 2, 3, 4, 5, 6, 7, 8, 9, 13]:
         # else:
             # max_points = (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2
             max_points = self.opts['max_points']
@@ -580,17 +580,18 @@ class TrustRegionSQPFilter():
                 pass
             
             niter = niter + 1
-        
         return new_Y
     
     def _update_radius(self, nd:int, nx:int, factor:float, radius:float):
-
+    
+        
         if nx < nd + 1: 
         # we don't punish bad prediction because we don't have sufficient points for linear model
             if factor > 1:
                 return factor*radius
             else:
                 return radius
+            # return radius
         else:
             return factor*radius
     
@@ -733,10 +734,10 @@ class TrustRegionSQPFilter():
                     
                     if is_next_point_good:
                     
-                        # print(f"y_next, fy_next, v_next = {self.denorm(y_next)}, {fy_next}, {v_next}")
+                        # print(f"y_next, fy_next, v_next, is_acceptable_in_the_filter = {self.denorm(y_next)}, {fy_next}, {v_next}, {is_acceptable_in_the_filter}")
                     
                         if is_acceptable_in_the_filter:
-                            self.filter_SQP.add_to_filter((fy_next, v_next))
+                            
                             v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
                             
                             mfy_curr = self.models.m_cf.model.model_polynomial.feval(y_curr)
@@ -744,25 +745,48 @@ class TrustRegionSQPFilter():
                             fy_curr = self.models.m_cf.model.f[0]
                             
                             rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)
-                            # if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2):
-                            
-                            if rho < self.constants['eta_1']:
+                            if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2) and rho < self.constants['eta_1']:
                                 radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
                                 need_model_improvement = True
                                 it_code = 1
                                 
                                 Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                                 
-                            else:
+                            elif mfy_curr - mfy_next < self.constants['kappa_vartheta']*(v_curr**2):
+                                self.filter_SQP.add_to_filter((fy_next, v_next))
+                                
                                 if rho >= self.constants['eta_2']:
                                     radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
+                                    need_model_improvement = False
                                     it_code = 2
-                                else:
+                                elif rho >= self.constants['eta_1'] and rho < self.constants['eta_2']:
                                     radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
+                                    need_model_improvement = False
                                     it_code = 3
+                                else:
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                                    need_model_improvement = True
+                                    it_code = 8
                                 
                                 Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                                 need_model_improvement = False
+                                
+                            else:
+                                if rho >= self.constants['eta_2']:
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
+                                    need_model_improvement = False
+                                    it_code = 4
+                                elif rho >= self.constants['eta_1'] and rho < self.constants['eta_2']:
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
+                                    need_model_improvement = False
+                                    it_code = 5
+                                else:
+                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                                    need_model_improvement = True
+                                    it_code = 9
+                                
+                                Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                                
 
                         else:
                             radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
