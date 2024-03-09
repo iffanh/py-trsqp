@@ -53,6 +53,9 @@ def _generate_uniform_sample_nsphere(k:int, d:int):
 @functools.lru_cache() 
 def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     
+    if k < 2*d + 1:
+        return generate_spanning_set(k, d)
+    
     print(f"Generating {k}-uniform points on the {d}-sphere ...")
     input_symbols = ca.SX.sym('x', d)
     samples = _generate_uniform_sample_nsphere(k-1, d)

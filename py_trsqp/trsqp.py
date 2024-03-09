@@ -587,11 +587,7 @@ class TrustRegionSQPFilter():
         
         if nx < nd + 1: 
         # we don't punish bad prediction because we don't have sufficient points for linear model
-            if factor > 1:
-                return factor*radius
-            else:
-                return radius
-            # return radius
+            return radius
         else:
             return factor*radius
     
@@ -622,7 +618,8 @@ class TrustRegionSQPFilter():
                     
                     center = Y[:, [0]]
                     # new_y = center + (Y-center)*radius 
-                    new_y = center + radius*generate_uniform_sample_nsphere(k=2*Y.shape[0]+1, d=Y.shape[0], L=self.constants['L_threshold'])
+                    # new_y = center + radius*generate_uniform_sample_nsphere(k=2*Y.shape[0]+1, d=Y.shape[0], L=self.constants['L_threshold'])
+                    new_y = center + radius*generate_uniform_sample_nsphere(k=2, d=Y.shape[0], L=self.constants['L_threshold'])
                     need_rebuild = False
                             
                 elif need_model_improvement:
@@ -769,7 +766,6 @@ class TrustRegionSQPFilter():
                                     it_code = 8
                                 
                                 Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
-                                need_model_improvement = False
                                 
                             else:
                                 if rho >= self.constants['eta_2']:
