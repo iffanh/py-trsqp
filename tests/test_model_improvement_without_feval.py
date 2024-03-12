@@ -59,6 +59,9 @@ class ModelImprovementTest(unittest.TestCase):
         
         Y = mi.generate_spanning_set(10, 25)
         self.assertEqual(10, Y.shape[1])
+        
+        Y = mi.generate_spanning_set(30, 25)
+        self.assertEqual(30, Y.shape[1])
          
         Y = mi.generate_spanning_set(51, 25)
         self.assertEqual(51, Y.shape[1])

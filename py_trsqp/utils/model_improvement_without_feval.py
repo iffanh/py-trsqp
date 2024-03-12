@@ -8,7 +8,7 @@ import time
 
 def generate_spanning_set(k, dim):
 
-    print(f"generate positive spanning set")
+    print(f"generate positive spanning set k = {k}, dim = {dim}")
     arr = np.zeros((dim, dim))
     for i in range(dim):
         arr[:,i] = -1/dim
