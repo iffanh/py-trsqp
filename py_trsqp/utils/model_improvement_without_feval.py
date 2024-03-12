@@ -22,7 +22,7 @@ def generate_spanning_set(k, dim):
         
     Y = np.concatenate([C.T, [vn]]).T #dim + 1
     
-    if k > dim + 2 and k <= 2*dim + 1:
+    if k > dim + 1 and k <= 2*dim + 1:
         for i in range(k - dim - 2):
             _v = -Y[:,[i]]
             Y = np.concatenate([Y, _v], axis=1)
