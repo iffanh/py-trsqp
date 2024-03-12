@@ -669,7 +669,8 @@ class TrustRegionSQPFilter():
                 best_point['f'] = f_test
                 best_point['v'] = v_test
             else:
-                if self.iterates[k-1]['best_point']['f'] > f_test:
+                _diff = np.abs(self.iterates[k-1]['best_point']['v'] - v_test)
+                if self.iterates[k-1]['best_point']['f'] > f_test and _diff < 1E-5:
                     best_point = dict()
                     best_point['y'] = self.denorm(y_test)
                     best_point['f'] = f_test
