@@ -55,6 +55,17 @@ class ModelImprovementTest(unittest.TestCase):
         
         pass
     
+    def test_generate_spanning_set(self):
+        
+        Y = mi.generate_spanning_set(10, 25)
+        self.assertEqual(10, Y.shape[1])
+         
+        Y = mi.generate_spanning_set(51, 25)
+        self.assertEqual(51, Y.shape[1])
+        
+        Y = mi.generate_spanning_set(52, 25) #maximum of 2n+1
+        self.assertEqual(51, Y.shape[1])
+    
 if __name__ == '__main__':
     # begin the unittest.main()
     unittest.main()

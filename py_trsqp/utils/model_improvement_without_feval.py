@@ -50,7 +50,7 @@ def _generate_uniform_sample_nsphere(k:int, d:int):
 @functools.lru_cache() 
 def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
     
-    if k < 2*d + 1:
+    if k <= 2*d + 1:
         return generate_spanning_set(k, d)
     
     print(f"Generating {k}-uniform points on the {d}-sphere ...")
