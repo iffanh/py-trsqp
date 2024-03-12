@@ -196,12 +196,12 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS = {}
         CONSTANTS["L_threshold"] = 1.000
         CONSTANTS["eta_1"] = 1E-8
-        CONSTANTS["eta_2"] = 1E-2
+        CONSTANTS["eta_2"] = 1E-7
         CONSTANTS["gamma_0"] = 0.6
         CONSTANTS["gamma_1"] = 0.8
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["stopping_radius"] = 1E-16
-        tr = tq.TrustRegionSQPFilter(x0=[-2.5,-2.0],
+        tr = tq.TrustRegionSQPFilter(x0=[-2.0,-2.0],
                                     cf=rosen, 
                                     ub=6.0,
                                     lb=-6.0,

@@ -84,6 +84,11 @@ class TrustRegionSQPFilter():
                 constants["stopping_radius"] = 1E-7
                 
             try:
+                tmp = constants["max_radius"] 
+            except:
+                constants["max_radius"] = 3.0
+                
+            try:
                 tmp = constants["L_threshold"] 
             except:
                 constants["L_threshold"] = 100.0
@@ -586,10 +591,256 @@ class TrustRegionSQPFilter():
     
         
         if nx < nd + 1: 
-        # we don't punish bad prediction because we don't have sufficient points for linear model
+            # we don't punish bad prediction because we don't have sufficient points for linear model
             return radius
         else:
-            return factor*radius
+            
+            if factor*radius > self.constants['max_radius']:
+                return radius
+            else:
+                return factor*radius
+        
+    def step_model_improvement(self, Y, radius, need_rebuild, need_model_improvement):
+        
+        ### STEP 2: Model improvement
+        ## prepare/check the interpolation points
+        if need_rebuild:
+            
+            center = Y[:, [0]]
+            # new_y = center + (Y-center)*radius 
+            # new_y = center + radius*generate_uniform_sample_nsphere(k=2*Y.shape[0]+1, d=Y.shape[0], L=self.constants['L_threshold'])
+            new_y = center + radius*generate_uniform_sample_nsphere(k=2, d=Y.shape[0], L=self.constants['L_threshold'])
+            need_rebuild = False
+                    
+        elif need_model_improvement:
+            # TODO: introduce criticality step!!!
+            
+            if Y.shape[1] <= Y.shape[0]:
+                model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
+                model.initialize(y=Y, tr_radius=radius)    
+            else: 
+                model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
+                model.initialize(y=Y, tr_radius=radius)
+            
+            poisedness = model.poisedness(rad=radius, center=Y[:,0])
+            if poisedness.max_poisedness() > self.constants['L_threshold']:    
+                sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
+                sg.improve_geometry()     
+                improved_model = sg.model
+                new_y = improved_model.y
+                
+            else:
+                new_y = Y*1
+                                    
+        else:
+            new_y = Y*1
+        
+        return new_y
+    
+    def step_organize_and_inform(self, k, radius, it_code):
+        
+        if k == 0:
+            # first iteration, best point IS the center of the trust-region
+            _fy = self.models.m_cf.model.f
+            _v = self.violations
+                    
+            self.filter_SQP.add_to_filter((_fy[0], _v[0]))
+            Y = self.models.m_cf.model.y*1
+            y_curr = Y[:,0]
+            f_curr = self.models.m_cf.model.f[0]
+            v_curr = self.violations[0]
+            
+            best_point = dict()
+            best_point['y'] = self.denorm(y_curr)
+            best_point['f'] = f_curr
+            best_point['v'] = v_curr
+            
+        else:
+            # next iterations, best point might not be the center of the trust-region.
+            
+            Y = self.models.m_cf.model.y*1
+            y_test = Y[:,0]
+            f_test = self.models.m_cf.model.f[0]
+            v_test = self.violations[0]
+            
+            if self.iterates[k-1]['best_point']['v'] > v_test:
+                best_point = dict()
+                best_point['y'] = self.denorm(y_test)
+                best_point['f'] = f_test
+                best_point['v'] = v_test
+            else:
+                if self.iterates[k-1]['best_point']['f'] > f_test:
+                    best_point = dict()
+                    best_point['y'] = self.denorm(y_test)
+                    best_point['f'] = f_test
+                    best_point['v'] = v_test
+                else:
+                    best_point = self.iterates[k-1]['best_point']
+                
+        
+        iterates = dict()
+        iterates['iteration_no'] = k
+        iterates['Y'] = Y
+        iterates['fY'] = self.models.m_cf.model.f
+        iterates['v'] = self.violations
+        iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
+        iterates['y_curr'] = self.denorm(Y[:,0])
+        iterates['best_point'] = best_point 
+        iterates['filters'] = self.filter_SQP.filters
+        iterates['radius'] = radius
+        iterates['models'] = self.models
+        iterates['total_number_of_function_calls'] = self.sm.cf.number_of_function_calls
+        if k > 0:
+            iterates['number_of_function_calls'] = iterates['total_number_of_function_calls'] - self.iterates[k-1]['total_number_of_function_calls'] 
+        else:
+            iterates['number_of_function_calls'] = iterates['total_number_of_function_calls']*1
+        
+        neval = iterates['number_of_function_calls']
+        iterates["it_code"] = it_code
+        
+        #Inform user
+        if  best_point['f'] is not None:
+            # print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
+            print(f"It. {k}: Best point, x= {best_point['y']}, f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
+            return iterates, True
+        
+        else: # failed simulation
+            print(f"It. {k}: Failed. r= {radius:.2e}, prev. it_code= {it_code}, nevals= {neval}, ")
+            return iterates, False
+        
+    def step_solve_subproblem(self, iterates):
+        
+        try:
+            y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=iterates['radius'])
+            for i in range(self.models.m_cf.model.y.shape[1]):
+                if np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]) == 0.0:
+                    raise RedundantPoint(y_next)
+                
+            exit_code = 'Normal step'
+            it_code = 0
+        except EndOfAlgorithm:
+            print(f"Impossible to solve restoration step. Current iterate = {iterates['Y'][:,0]}")
+            exit_code = 'Restoration step'
+            # need_model_improvement = True
+            it_code = 9
+            # self.iterates.append(iterates)
+            # break
+        except RedundantPoint as e:
+            print(f"Point already exist : {e}. Try to reduce poisedness threshold")
+            exit_code = 'Redundant point'
+            # need_model_improvement = True
+            self.is_trqp_compatible = False
+            it_code = 8
+            y_next = np.mean(iterates['Y'], axis=1)
+            # how to avoid this???
+        
+        self.iterates.append(iterates)
+        
+        return y_next, radius, exit_code, it_code
+    
+    def step_updates(self, iterates, y_next, radius):
+        
+        Y = iterates['Y']
+        
+        if self.is_trqp_compatible:
+            try:
+                fy_next, v_next = self.run_single_simulation(y_next)
+                is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next), to_add=False)
+                is_next_point_good = True
+            except FailedSimulation as e:
+                is_acceptable_in_the_filter = False
+                is_next_point_good = False
+                fy_next = None
+                v_next = None
+                pass
+            
+            if is_next_point_good:
+            
+                # print(f"y_next, fy_next, v_next, is_acceptable_in_the_filter = {self.denorm(y_next)}, {fy_next}, {v_next}, {is_acceptable_in_the_filter}")
+            
+                if is_acceptable_in_the_filter:
+                    
+                    v_curr = self.models.m_viol.feval(iterates['y_curr']).full()[0][0]
+                    
+                    mfy_curr = self.models.m_cf.model.model_polynomial.feval(iterates['y_curr'])
+                    mfy_next = self.models.m_cf.model.model_polynomial.feval(y_next)
+                    fy_curr = self.models.m_cf.model.f[0]
+                    
+                    rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)
+                    if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2) and rho < self.constants['eta_1']:
+                        radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
+                        need_rebuild = False
+                        need_model_improvement = True
+                        it_code = 1
+                        
+                        Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                        
+                    elif mfy_curr - mfy_next < self.constants['kappa_vartheta']*(v_curr**2):
+                        self.filter_SQP.add_to_filter((fy_next, v_next))
+                        
+                        if rho >= self.constants['eta_2']:
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
+                            need_rebuild = False
+                            need_model_improvement = False
+                            it_code = 2
+                        elif rho >= self.constants['eta_1'] and rho < self.constants['eta_2']:
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
+                            need_rebuild = False
+                            need_model_improvement = True
+                            it_code = 3
+                        else:
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                            need_rebuild = False
+                            need_model_improvement = True
+                            it_code = 8
+                        
+                        Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                        
+                    else:
+                        if rho >= self.constants['eta_2']:
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
+                            need_rebuild = False
+                            need_model_improvement = False
+                            it_code = 4
+                        elif rho >= self.constants['eta_1'] and rho < self.constants['eta_2']:
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
+                            need_rebuild = False
+                            need_model_improvement = True
+                            it_code = 5
+                        else:
+                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                            need_rebuild = False
+                            need_model_improvement = True
+                            it_code = 9
+                        
+                        Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                        
+                else:
+                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                    it_code = 6
+                    Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                    need_rebuild = False
+                    need_model_improvement = True
+            else:
+                radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                it_code = 13
+                Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
+                need_rebuild = True
+                need_model_improvement = False
+                    
+        else:
+            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+            fy_curr = iterates['fY'][0]
+            v_curr = iterates['v'][0]
+            _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
+            
+            it_code = 7
+            Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
+            need_rebuild = False
+            need_model_improvement = True
+            # need_rebuild = False
+        
+        return Y, radius, need_rebuild, need_model_improvement, it_code
     
     def optimize(self, max_iter=15):
         
@@ -612,40 +863,10 @@ class TrustRegionSQPFilter():
                     exit_code = 'Minimum radius'
                     break
                 
+                # STEP 1: Model improvement algorithm
+                new_y = self.step_model_improvement(Y, radius, need_rebuild, need_model_improvement)
                 
-                ## prepare/check the interpolation points
-                if need_rebuild:
-                    
-                    center = Y[:, [0]]
-                    # new_y = center + (Y-center)*radius 
-                    # new_y = center + radius*generate_uniform_sample_nsphere(k=2*Y.shape[0]+1, d=Y.shape[0], L=self.constants['L_threshold'])
-                    new_y = center + radius*generate_uniform_sample_nsphere(k=2, d=Y.shape[0], L=self.constants['L_threshold'])
-                    need_rebuild = False
-                            
-                elif need_model_improvement:
-                    # TODO: introduce criticality step!!!
-                    
-                    if Y.shape[1] <= Y.shape[0]:
-                        model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
-                        model.initialize(y=Y, tr_radius=radius)    
-                    else: 
-                        model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
-                        model.initialize(y=Y, tr_radius=radius)
-                    
-                    poisedness = model.poisedness(rad=radius, center=Y[:,0])
-                    if poisedness.max_poisedness() > self.constants['L_threshold']:    
-                        sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
-                        sg.improve_geometry()     
-                        improved_model = sg.model
-                        new_y = improved_model.y
-                        
-                    else:
-                        new_y = Y*1
-                                         
-                else:
-                    new_y = Y*1
-                
-                ## run simulation and build models
+                # STEP 2: Run simulation and build models
                 try:
                     self.models = self.main_run(Y=new_y)
                 except IllPoisedModel:
@@ -653,158 +874,23 @@ class TrustRegionSQPFilter():
                     need_model_improvement = True
                     continue
                 
-                Y = self.models.m_cf.model.y*1
-                y_curr = Y[:,0]
-                f_curr = self.models.m_cf.model.f[0]
-                v_curr = self.violations[0]
-                if k == 0:
-                    
-                    _fy = self.models.m_cf.model.f
-                    _v = self.violations
-                            
-                    self.filter_SQP.add_to_filter((_fy[0], _v[0]))
-                
-                iterates = dict()
-                iterates['iteration_no'] = k
-                iterates['Y'] = Y
-                iterates['fY'] = self.models.m_cf.model.f
-                iterates['v'] = self.violations
-                iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
-                iterates['y_curr'] = self.denorm(Y[:,0])
-                iterates['filters'] = self.filter_SQP.filters
-                iterates['radius'] = radius
-                iterates['models'] = self.models
-                iterates['total_number_of_function_calls'] = self.sm.cf.number_of_function_calls
-                if k > 0:
-                    iterates['number_of_function_calls'] = iterates['total_number_of_function_calls'] - self.iterates[k-1]['total_number_of_function_calls'] 
-                else:
-                    iterates['number_of_function_calls'] = iterates['total_number_of_function_calls']*1
-                
-                neval = iterates['number_of_function_calls']
-                iterates["it_code"] = it_code
-                
-                #Inform user
-                if f_curr is not None:
-                    print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
-                else:
-                    print(f"It. {k}: Failed. r= {radius:.2e}, prev. it_code= {it_code}, nevals= {neval}, ")
+                # STEP 2.5: Some organization and inform user 
+                iterates, sim_success = self.step_organize_and_inform(k, radius, it_code)
+                if not sim_success:
                     it_code = 10
                     radius = self.constants['gamma_0']*radius
                     need_model_improvement = True
                     need_rebuild = True
                     self.iterates.append(iterates)
                     continue
-                    
-                try:
-                    y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=radius)
-                    for i in range(self.models.m_cf.model.y.shape[1]):
-                        if np.linalg.norm(y_next - self.models.m_cf.model.y[:,i]) == 0.0:
-                            raise RedundantPoint(y_next)
-                except EndOfAlgorithm:
-                    print(f"Impossible to solve restoration step. Current iterate = {Y[:,0]}")
-                    exit_code = 'Restoration step'
-                    it_code = 9
-                    self.iterates.append(iterates)
-                    break
-                except RedundantPoint as e:
-                    print(f"Point already exist : {e}. Try to reduce poisedness threshold")
-                    exit_code = 'Redundant point'
-                    need_model_improvement = True
-                    self.is_trqp_compatible = False
-                    it_code = 8
-                    y_next = np.mean(Y, axis=1)
-                    # how to avoid this???
                 
-                self.iterates.append(iterates)
-                    
-                if self.is_trqp_compatible:
-                    try:
-                        fy_next, v_next = self.run_single_simulation(y_next)
-                        is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next), to_add=False)
-                        is_next_point_good = True
-                    except FailedSimulation as e:
-                        is_acceptable_in_the_filter = False
-                        is_next_point_good = False
-                        fy_next = None
-                        v_next = None
-                        pass
-                    
-                    if is_next_point_good:
-                    
-                        # print(f"y_next, fy_next, v_next, is_acceptable_in_the_filter = {self.denorm(y_next)}, {fy_next}, {v_next}, {is_acceptable_in_the_filter}")
-                    
-                        if is_acceptable_in_the_filter:
-                            
-                            v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
-                            
-                            mfy_curr = self.models.m_cf.model.model_polynomial.feval(y_curr)
-                            mfy_next = self.models.m_cf.model.model_polynomial.feval(y_next)
-                            fy_curr = self.models.m_cf.model.f[0]
-                            
-                            rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)
-                            if mfy_curr - mfy_next >= self.constants['kappa_vartheta']*(v_curr**2) and rho < self.constants['eta_1']:
-                                radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
-                                need_model_improvement = True
-                                it_code = 1
-                                
-                                Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
-                                
-                            elif mfy_curr - mfy_next < self.constants['kappa_vartheta']*(v_curr**2):
-                                self.filter_SQP.add_to_filter((fy_next, v_next))
-                                
-                                if rho >= self.constants['eta_2']:
-                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
-                                    need_model_improvement = False
-                                    it_code = 2
-                                elif rho >= self.constants['eta_1'] and rho < self.constants['eta_2']:
-                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
-                                    need_model_improvement = False
-                                    it_code = 3
-                                else:
-                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
-                                    need_model_improvement = True
-                                    it_code = 8
-                                
-                                Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
-                                
-                            else:
-                                if rho >= self.constants['eta_2']:
-                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
-                                    need_model_improvement = False
-                                    it_code = 4
-                                elif rho >= self.constants['eta_1'] and rho < self.constants['eta_2']:
-                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_1'], radius)
-                                    need_model_improvement = False
-                                    it_code = 5
-                                else:
-                                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
-                                    need_model_improvement = True
-                                    it_code = 9
-                                
-                                Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
-                                
-
-                        else:
-                            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
-                            it_code = 6
-                            Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
-                            need_model_improvement = True
-                    else:
-                        radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
-                        it_code = 13
-                        Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
-                        need_rebuild = True
-                            
-                else:
-                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
-                    fy_curr = self.models.m_cf.model.f[0]
-                    v_curr = self.models.m_viol.feval(y_curr).full()[0][0]
-                    _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
-                    
-                    it_code = 7
-                    Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
-                    need_model_improvement = True
-                    # need_rebuild = False
+                # STEP 3: Solving the subproblem
+                y_next, radius, exit_code, it_code = self.step_solve_subproblem(iterates)
+                
+                
+                # STEP 4: Updates
+                Y, radius, need_rebuild, need_model_improvement, it_code = self.step_updates(iterates, y_next, radius)    
+                
                 if k == max_iter - 1:
                     exit_code = 'Maximum iteration'
 
@@ -812,7 +898,7 @@ class TrustRegionSQPFilter():
                 if self.opts['budget'] < self.sm.cf.number_of_function_calls:
                     exit_code = 'Budget Exceeded'
                     break
-                
+        
             try:
                 tmp = exit_code
             except:

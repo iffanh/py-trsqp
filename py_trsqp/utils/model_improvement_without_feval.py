@@ -26,16 +26,13 @@ def generate_spanning_set(k, dim):
         for i in range(k - dim - 2):
             _v = -Y[:,[i]]
             Y = np.concatenate([Y, _v], axis=1)
-            
     elif k <= dim + 1:
-        for i in range(dim - k + 1):
-            Y = Y[:, :-1]
-            
+        Y = Y[:, :k-1]
     else:
-        for i in range(1, dim + 1):
+        for i in range(1, dim):
             _v = -Y[:,[i]]
             Y = np.concatenate([Y, _v], axis=1) # 2dim + 1
-    
+        
     Y = np.concatenate((np.zeros((dim, 1)), Y), axis=1)
     
     return Y
