@@ -615,22 +615,24 @@ class TrustRegionSQPFilter():
         elif need_model_improvement:
             # TODO: introduce criticality step!!!
             
-            if Y.shape[1] <= Y.shape[0]:
-                model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
-                model.initialize(y=Y, tr_radius=radius)    
+            if Y.shape[1] <= Y.shape[0] + 1:
+                # model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=1)
+                # model.initialize(y=Y, tr_radius=radius)    
+                center = Y[:, [0]]
+                new_y = center + radius*generate_uniform_sample_nsphere(k=Y.shape[1], d=Y.shape[0], L=self.constants['L_threshold'])
             else: 
                 model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                 model.initialize(y=Y, tr_radius=radius)
             
-            poisedness = model.poisedness(rad=radius, center=Y[:,0])
-            if poisedness.max_poisedness() > self.constants['L_threshold']:    
-                sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
-                sg.improve_geometry()     
-                improved_model = sg.model
-                new_y = improved_model.y
-                
-            else:
-                new_y = Y*1
+                poisedness = model.poisedness(rad=radius, center=Y[:,0])
+                if poisedness.max_poisedness() > self.constants['L_threshold']:
+                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
+                    sg.improve_geometry()     
+                    improved_model = sg.model
+                    new_y = improved_model.y
+                    
+                else:
+                    new_y = Y*1
                                     
         else:
             new_y = Y*1
