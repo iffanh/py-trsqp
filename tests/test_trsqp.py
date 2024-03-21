@@ -32,6 +32,12 @@ def ineq2(x):
 def ineq3(x):
     return x[0]**2 + x[1]**2 - 1
 
+def ineq4(x):
+    return x[0] + x[1] - 1
+
+def ineq5(x):
+    return - x[0] - x[1] - 1
+
 def ackley(x:np.ndarray) -> np.ndarray: 
     return -20*np.exp(-0.2*np.sqrt(0.5*(x[0]**2 + x[1]**2))) - np.exp(0.5*(np.cos(2*np.pi*x[0]) + np.cos(2*np.pi*x[1]))) + np.e + 20
 
@@ -166,6 +172,23 @@ class TRSQPTest(unittest.TestCase):
         
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], sol0, places=3)
         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], sol1, places=3)
+        
+    def test_trsqp_simple_no_feasible_solution(self):
+        print("======== SIMPLE w NO FEASIBLE SOLUTION ========")
+        
+        tr = tq.TrustRegionSQPFilter(x0=[1.0,-1.0],
+                                    cf=simple, 
+                                    ub=3.0,
+                                    lb=-3.0,
+                                    eqcs=[], 
+                                    ineqcs=[ineq4, ineq5],
+                                    opts={'solver': 'ipopt'}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=50)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+    
+        # self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], sol0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['v'], 1, places=3)
          
     def test_trsqp_rosen(self):
         print("======== ROSENBROCK ========")
@@ -269,8 +292,9 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS = {}
         CONSTANTS["L_threshold"] = 1.000
         CONSTANTS["eta_1"] = 0.001
-        CONSTANTS["eta_2"] = 0.2
+        CONSTANTS["eta_2"] = 0.002
         CONSTANTS["gamma_0"] = 0.5
+        
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["init_radius"] = 1.0
@@ -291,24 +315,24 @@ class TRSQPTest(unittest.TestCase):
         self.assertAlmostEqual(tr.iterates[-1]['fY'][0], -1.9133, places=3)
     
     # HEAVY TEST
-    # def test_trsqp_simple_but_many(self):
-    #     print("======== HEAVY: SIMPLE BUT MANY ========")
+    def test_trsqp_simple_but_many(self):
+        print("======== HEAVY: SIMPLE BUT MANY ========")
         
-    #     tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
-    #                                 cf=simple_but_many, 
-    #                                 ub=3.0,
-    #                                 lb=-3.0,
-    #                                 eqcs=[], 
-    #                                 ineqcs=[],
-    #                                 opts={'solver': 'ipopt', 
-    #                                       'max_points': 21}, 
-    #                                 constants=CONSTANTS)
-    #     tr.optimize(max_iter=500)
-    #     print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
+        tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
+                                    cf=simple_but_many, 
+                                    ub=3.0,
+                                    lb=-3.0,
+                                    eqcs=[], 
+                                    ineqcs=[],
+                                    opts={'solver': 'ipopt', 
+                                          'max_points': 21}, 
+                                    constants=CONSTANTS)
+        tr.optimize(max_iter=500)
+        print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-    #     sol = 1.000
-    #     for i in range(10):
-    #         self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
+        sol = 1.000
+        for i in range(10):
+            self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
               
 if __name__ == '__main__':
     # begin the unittest.main()

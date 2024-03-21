@@ -151,7 +151,7 @@ class TrustRegionSQPFilter():
                     raise IncorrectInputException(f"Upper bound and lower bound have to be the same size. Got len(ub) = {len(ub)} and len(lb) = {len(lb)}")
                     
                 if not (len(ub) == len(x0)):
-                    raise IncorrectInputException(f"Initial values and constraints have to be the same size. Got len(x0) = {len(x0)} and len(ub) = {len(ub)}")
+                    raise IncorrectInputException(f"Initial values and bounds have to be the same size. Got len(x0) = {len(x0)} and len(ub) = {len(ub)}")
                     
             elif (type(ub) is float) and (type(lb) is float):
                 ub = [ub for i in range(len(x0))]
@@ -208,8 +208,8 @@ class TrustRegionSQPFilter():
         self.zero_flags = x0 == 0.0
         
         x0 = self.norm(x0)
-        self.ubt = self.norm(np.array(self.ub))
-        self.lbt = self.norm(np.array(self.lb))
+        self.ubt = self.norm(np.array(self.ub)) # t = tilde, normalized bound
+        self.lbt = self.norm(np.array(self.lb)) # t = tilde, normalized bound
         
         # TODO:radius needs to be updated IF it exceeds the bound.    
         rad = constants['init_radius']*1            
@@ -227,6 +227,26 @@ class TrustRegionSQPFilter():
     
     def transform_functions(self, f:callable):
         return lambda x: f(self.denorm(x))
+    
+    # def norm(self, x:np.ndarray):
+        
+    #     xt = []
+    #     for i, xi in enumerate(x):
+    #         xci = self.xn[i]
+    #         xti = (xi - xci)/self.R[i]
+    #         xt.append(xti)
+            
+    #     return np.array(xt)
+    
+    # def denorm(self, xt:np.ndarray):
+        
+    #     x = []
+    #     for i, xti in enumerate(xt):
+    #         xci = self.xn[i]
+    #         xi = xti*self.R[i] + xci
+    #         x.append(xi)
+            
+    #     return np.array(x)
     
     def norm(self, x:np.ndarray):
         
@@ -546,27 +566,17 @@ class TrustRegionSQPFilter():
         bad_sorted_index = []
         # for index in indices_1:
         for index in range(new_Y.shape[1]):
-            
             if and_check[index]: #if lb <= y <= ub
                 good_sorted_index.append(index)
             else: # otherwise
                 bad_sorted_index.append(index)
                 
         new_sorted_index = good_sorted_index + bad_sorted_index
-            
         new_Y = new_Y[:, new_sorted_index]
 
-                
         niter = 1
-        
-        if it_code in []: 
-            max_points = (new_Y.shape[0] + 1)
-        elif it_code in []:
-            max_points = (2*new_Y.shape[0] + 1)
-        elif it_code in [1, 2, 3, 4, 5, 6, 7, 8, 9, 13]:
-        # else:
-            # max_points = (new_Y.shape[0] + 1)*(new_Y.shape[0] + 2)/2
-            max_points = self.opts['max_points']
+
+        max_points = self.opts['max_points']
 
         while max_points < new_Y.shape[1] and niter < new_Y.shape[1]: 
         # too many points, remove the point that contributes to the worst model
@@ -585,6 +595,7 @@ class TrustRegionSQPFilter():
                 pass
             
             niter = niter + 1
+
         return new_Y
     
     def _update_radius(self, nd:int, nx:int, factor:float, radius:float):
@@ -595,10 +606,7 @@ class TrustRegionSQPFilter():
             return radius
         else:
             
-            if factor*radius > self.constants['max_radius']:
-                return radius
-            else:
-                return factor*radius
+            return factor*radius
         
     def step_model_improvement(self, Y, radius, need_rebuild, need_model_improvement):
         
@@ -665,21 +673,42 @@ class TrustRegionSQPFilter():
             f_test = self.models.m_cf.model.f[0]
             v_test = self.violations[0]
             
-            if self.iterates[k-1]['best_point']['v'] > v_test:
-                best_point = dict()
-                best_point['y'] = self.denorm(y_test)
-                best_point['f'] = f_test
-                best_point['v'] = v_test
-            else:
-                _diff = np.abs(self.iterates[k-1]['best_point']['v'] - v_test)
-                if self.iterates[k-1]['best_point']['f'] > f_test and _diff < 1E-5:
+            # check bound
+            dist = 0 # distance to bound for the previous point
+            p = self.iterates[k-1]['best_point']['y']
+            for i, (lb, ub) in enumerate(zip(self.lbt, self.ubt)):
+                if p[i] < lb:
+                    dist += (p[i] - lb)**2
+                elif p[i] > ub:
+                    dist += (p[i] - ub)**2
+                    
+            dist_test = 0 # distance to bound for the test point
+            for i, (lb, ub) in enumerate(zip(self.lbt, self.ubt)):
+                if y_test[i] < lb:
+                    dist_test += (y_test[i] - lb)**2
+                elif y_test[i] > ub:
+                    dist_test += (y_test[i] - ub)**2
+            
+            # bound: If the bound violation for the test point is larger, then we pick the previous point. 
+            # otherwise continue with other test
+            if (dist >= dist_test):
+                # check violation
+                if self.iterates[k-1]['best_point']['v'] > v_test:
                     best_point = dict()
                     best_point['y'] = self.denorm(y_test)
                     best_point['f'] = f_test
                     best_point['v'] = v_test
                 else:
-                    best_point = self.iterates[k-1]['best_point']
-                
+                    _diff = np.abs(self.iterates[k-1]['best_point']['v'] - v_test)
+                    if self.iterates[k-1]['best_point']['f'] > f_test and _diff < 1E-5:
+                        best_point = dict()
+                        best_point['y'] = self.denorm(y_test)
+                        best_point['f'] = f_test
+                        best_point['v'] = v_test
+                    else:
+                        best_point = self.iterates[k-1]['best_point']
+            else:
+                best_point = self.iterates[k-1]['best_point']
         
         iterates = dict()
         iterates['iteration_no'] = k
@@ -702,7 +731,7 @@ class TrustRegionSQPFilter():
         iterates["it_code"] = it_code
         
         #Inform user
-        if  best_point['f'] is not None:
+        if best_point['f'] is not None:
             # print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             print(f"It. {k}: Best point, x= {best_point['y']}, f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             return iterates, True
@@ -734,8 +763,8 @@ class TrustRegionSQPFilter():
             # need_model_improvement = True
             self.is_trqp_compatible = False
             it_code = 8
-            y_next = np.mean(iterates['Y'], axis=1)
-            # how to avoid this???
+            y_next = np.mean(iterates['Y'], axis=1) + radius*np.random.rand(iterates['Y'].shape[0])
+            # Add random values to avoid the same value
         
         self.iterates.append(iterates)
         
@@ -745,22 +774,23 @@ class TrustRegionSQPFilter():
         
         Y = iterates['Y']
         
+        # if self.is_trqp_compatible:
+        try:
+            fy_next, v_next = self.run_single_simulation(y_next)
+            is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next), to_add=False)
+            is_next_point_good = True
+        except FailedSimulation as e:
+            is_acceptable_in_the_filter = False
+            is_next_point_good = False
+            fy_next = None
+            v_next = None
+            pass
+        
         if self.is_trqp_compatible:
-            try:
-                fy_next, v_next = self.run_single_simulation(y_next)
-                is_acceptable_in_the_filter = self.filter_SQP.add_to_filter((fy_next, v_next), to_add=False)
-                is_next_point_good = True
-            except FailedSimulation as e:
-                is_acceptable_in_the_filter = False
-                is_next_point_good = False
-                fy_next = None
-                v_next = None
-                pass
             
             if is_next_point_good:
             
-                # print(f"y_next, fy_next, v_next, is_acceptable_in_the_filter = {self.denorm(y_next)}, {fy_next}, {v_next}, {is_acceptable_in_the_filter}")
-            
+                # print(f"y_next, fy_next, v_next, is_acceptable_in_the_filter = {self.denorm(y_next)}, {fy_next}, {v_next}, {is_acceptable_in_the_filter}")     
                 if is_acceptable_in_the_filter:
                     
                     v_curr = self.models.m_viol.feval(iterates['y_curr']).full()[0][0]
@@ -821,9 +851,9 @@ class TrustRegionSQPFilter():
                 else:
                     radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
                     it_code = 6
-                    Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                     need_rebuild = False
                     need_model_improvement = True
+                    Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
             else:
                 radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
                 it_code = 13
@@ -832,16 +862,21 @@ class TrustRegionSQPFilter():
                 need_model_improvement = False
                     
         else:
-            radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+            
             fy_curr = iterates['fY'][0]
             v_curr = iterates['v'][0]
             _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
+            
+            if (v_curr - v_next)**2 > 1E-6:        
+                # Enlarge radius when TRQP is not compatible -> will diverge if there is no feasible solutions
+                radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
+            else:
+                radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
             
             it_code = 7
             Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
             need_rebuild = False
             need_model_improvement = True
-            # need_rebuild = False
         
         return Y, radius, need_rebuild, need_model_improvement, it_code
     
@@ -868,7 +903,7 @@ class TrustRegionSQPFilter():
                 
                 # STEP 1: Model improvement algorithm
                 new_y = self.step_model_improvement(Y, radius, need_rebuild, need_model_improvement)
-                
+
                 # STEP 2: Run simulation and build models
                 try:
                     self.models = self.main_run(Y=new_y)
