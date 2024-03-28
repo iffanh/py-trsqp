@@ -178,6 +178,30 @@ class TRQP():
         center = data[:,0]
         
         is_success = False
+        
+        ubg = []
+        lbg = []
+        g = []
+        
+        # Equality constraints
+        if len(models.m_eqcs.models) == 0:
+            pass
+        else:
+            eqcs = ca.vertcat(*[m.model.model_polynomial_normalized.symbol for m in models.m_eqcs.models])
+            g.append(eqcs)
+            for _ in range(len(models.m_eqcs.models)):
+                ubg.append(0.)
+                lbg.append(0.)
+        
+        # Inequality constraints
+        if len(models.m_ineqcs.models) == 0:
+            pass
+        else:
+            ineqcs = ca.vertcat(*[m.model.model_polynomial_normalized.symbol for m in models.m_ineqcs.models])
+            g.append(ineqcs)
+            for _ in range(len(models.m_ineqcs.models)):
+                ubg.append(ca.inf)
+                lbg.append(0.)
             
         # tr radius as input bound      
         ubx = np.min((np.zeros(center.shape) + 1.0, (np.array(ub) - center)/radius), axis=0) 
