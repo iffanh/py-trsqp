@@ -693,20 +693,23 @@ class TrustRegionSQPFilter():
             # otherwise continue with other test
             if (dist >= dist_test):
                 # check violation
-                if self.iterates[k-1]['best_point']['v'] > v_test:
-                    best_point = dict()
-                    best_point['y'] = self.denorm(y_test)
-                    best_point['f'] = f_test
-                    best_point['v'] = v_test
-                else:
-                    _diff = np.abs(self.iterates[k-1]['best_point']['v'] - v_test)
-                    if self.iterates[k-1]['best_point']['f'] > f_test and _diff < 1E-5:
+                if v_test is not None:
+                    if self.iterates[k-1]['best_point']['v'] > v_test:
                         best_point = dict()
                         best_point['y'] = self.denorm(y_test)
                         best_point['f'] = f_test
                         best_point['v'] = v_test
                     else:
-                        best_point = self.iterates[k-1]['best_point']
+                        _diff = np.abs(self.iterates[k-1]['best_point']['v'] - v_test)
+                        if self.iterates[k-1]['best_point']['f'] > f_test and _diff < 1E-5:
+                            best_point = dict()
+                            best_point['y'] = self.denorm(y_test)
+                            best_point['f'] = f_test
+                            best_point['v'] = v_test
+                        else:
+                            best_point = self.iterates[k-1]['best_point']
+                else:
+                    best_point = self.iterates[k-1]['best_point']
             else:
                 best_point = self.iterates[k-1]['best_point']
         
