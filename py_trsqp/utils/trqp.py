@@ -204,9 +204,11 @@ class TRQP():
                 lbg.append(0.)
             
         # tr radius as input bound      
-        ubx = np.min((np.zeros(center.shape) + 1.0, (np.array(ub) - center)/radius), axis=0) 
-        lbx = np.max((np.zeros(center.shape) - 1.0, (np.array(lb) - center)/radius), axis=0)
-
+        # ubx = np.min((np.zeros(center.shape) + 1.0, (np.array(ub) - center)/radius), axis=0) 
+        # lbx = np.max((np.zeros(center.shape) - 1.0, (np.array(lb) - center)/radius), axis=0)
+        ubx = np.zeros(center.shape) + 1.0 
+        lbx = np.zeros(center.shape) - 1.0
+        
         lbx[lbx > ubx] = ubx[lbx > ubx]
         
         nlp = {

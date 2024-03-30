@@ -632,15 +632,19 @@ class TrustRegionSQPFilter():
                 model = LagrangePolynomials(input_symbols=self.input_symbols, pdegree=2)
                 model.initialize(y=Y, tr_radius=radius)
             
-                poisedness = model.poisedness(rad=radius, center=Y[:,0])
-                if poisedness.max_poisedness() > self.constants['L_threshold']:
-                    sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
-                    sg.improve_geometry()     
-                    improved_model = sg.model
-                    new_y = improved_model.y
-                    
-                else:
-                    new_y = Y*1
+                try: 
+                    poisedness = model.poisedness(rad=radius, center=Y[:,0])
+                    if poisedness.max_poisedness() > self.constants['L_threshold']:
+                        sg = SetGeometry(input_symbols=self.input_symbols, Y=Y, rad=radius, L=self.constants['L_threshold'])
+                        sg.improve_geometry()     
+                        improved_model = sg.model
+                        new_y = improved_model.y
+                        
+                    else:
+                        new_y = Y*1
+                except PoisednessIsZeroException:
+                    center = Y[:, [0]]
+                    new_y = center + radius*generate_uniform_sample_nsphere(k=Y.shape[1], d=Y.shape[0], L=self.constants['L_threshold'])
                                     
         else:
             new_y = Y*1
@@ -856,6 +860,7 @@ class TrustRegionSQPFilter():
                     it_code = 6
                     need_rebuild = False
                     need_model_improvement = True
+                    # need_model_improvement = False
                     Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
             else:
                 radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
