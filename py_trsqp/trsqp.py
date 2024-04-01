@@ -524,7 +524,7 @@ class TrustRegionSQPFilter():
             worst_f = np.concatenate([[fy_next], models.m_cf.model.f])
             worst_v = np.concatenate([[v_next], self.violations])
             
-            if it_code in []:
+            if it_code in [4, 5]:
                 # we are not ordering by violation first, following the algorithm.
                 pass
             else:
