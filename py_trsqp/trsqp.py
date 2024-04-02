@@ -400,8 +400,8 @@ class TrustRegionSQPFilter():
         
         and_check = []
         for j in range(Y.shape[1]):
-            lbt_check = all(self.lbt <= Y[:,j])
-            ubt_check = all(self.ubt >= Y[:,j])
+            lbt_check = all(self.lbt - 1E-6 <= Y[:,j])
+            ubt_check = all(self.ubt + 1E-6 >= Y[:,j])
             check = np.logical_and(lbt_check, ubt_check)
             and_check.append(check)        
                 
@@ -524,7 +524,8 @@ class TrustRegionSQPFilter():
             worst_f = np.concatenate([[fy_next], models.m_cf.model.f])
             worst_v = np.concatenate([[v_next], self.violations])
             
-            if it_code in [4, 5]:
+            # if it_code in [4, 5]:
+            if it_code in []:
                 # we are not ordering by violation first, following the algorithm.
                 pass
             else:
@@ -557,8 +558,8 @@ class TrustRegionSQPFilter():
 
         and_check = []
         for j in range(new_Y.shape[1]):
-            lbt_check = all(self.lbt <= new_Y[:,j])
-            ubt_check = all(self.ubt >= new_Y[:,j])
+            lbt_check = all(self.lbt - 1E-6 <= new_Y[:,j])
+            ubt_check = all(self.ubt + 1E-6 >= new_Y[:,j])
             check = np.logical_and(lbt_check, ubt_check)
             and_check.append(check)        
                 
@@ -601,7 +602,7 @@ class TrustRegionSQPFilter():
     def _update_radius(self, nd:int, nx:int, factor:float, radius:float):
     
         
-        if nx < nd + 1: 
+        if nx < 2*nd + 1: 
             # we don't punish bad prediction because we don't have sufficient points for linear model
             return radius
         else:
@@ -719,11 +720,11 @@ class TrustRegionSQPFilter():
         
         iterates = dict()
         iterates['iteration_no'] = k
-        iterates['Y'] = Y
-        iterates['fY'] = self.models.m_cf.model.f
-        iterates['v'] = self.violations
-        iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
-        iterates['y_curr'] = self.denorm(Y[:,0])
+        # iterates['Y'] = Y
+        # iterates['fY'] = self.models.m_cf.model.f
+        # iterates['v'] = self.violations
+        # iterates['all_violations'] = {'equality': self.v_eq_lists, 'inequality': self.v_ineq_lists}
+        # iterates['y_curr'] = self.denorm(Y[:,0])
         iterates['best_point'] = best_point 
         iterates['filters'] = self.filter_SQP.filters
         iterates['radius'] = radius
@@ -740,7 +741,8 @@ class TrustRegionSQPFilter():
         #Inform user
         if best_point['f'] is not None:
             # print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
-            print(f"It. {k}: Best point, x= {best_point['y']}, f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
+            # print(f"It. {k}: Best point, x= {best_point['y']}, f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
+            print(f"It. {k}: f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             return iterates, True
         
         else: # failed simulation
@@ -748,6 +750,7 @@ class TrustRegionSQPFilter():
             return iterates, False
         
     def step_solve_subproblem(self, iterates):
+        Y = self.models.m_cf.model.y*1
         
         try:
             y_next, radius, self.is_trqp_compatible = self.solve_TRQP(models=self.models, radius=iterates['radius'])
@@ -758,7 +761,7 @@ class TrustRegionSQPFilter():
             exit_code = 'Normal step'
             it_code = 0
         except EndOfAlgorithm:
-            print(f"Impossible to solve restoration step. Current iterate = {iterates['Y'][:,0]}")
+            print(f"Impossible to solve restoration step")
             exit_code = 'Restoration step'
             # need_model_improvement = True
             it_code = 9
@@ -770,7 +773,7 @@ class TrustRegionSQPFilter():
             # need_model_improvement = True
             self.is_trqp_compatible = False
             it_code = 8
-            y_next = np.mean(iterates['Y'], axis=1) + radius*np.random.rand(iterates['Y'].shape[0])
+            y_next = np.mean(Y, axis=1) + radius*np.random.rand(Y.shape[0])
             # Add random values to avoid the same value
         
         self.iterates.append(iterates)
@@ -779,7 +782,8 @@ class TrustRegionSQPFilter():
     
     def step_updates(self, iterates, y_next, radius):
         
-        Y = iterates['Y']
+        # Y = iterates['Y']
+        Y = self.models.m_cf.model.y*1
         
         # if self.is_trqp_compatible:
         try:
@@ -800,9 +804,11 @@ class TrustRegionSQPFilter():
                 # print(f"y_next, fy_next, v_next, is_acceptable_in_the_filter = {self.denorm(y_next)}, {fy_next}, {v_next}, {is_acceptable_in_the_filter}")     
                 if is_acceptable_in_the_filter:
                     
-                    v_curr = self.models.m_viol.feval(iterates['y_curr']).full()[0][0]
+                    # y_curr = self.denorm(Y[:,0])
                     
-                    mfy_curr = self.models.m_cf.model.model_polynomial.feval(iterates['y_curr'])
+                    v_curr = self.models.m_viol.feval(Y[:,0]).full()[0][0]
+                    
+                    mfy_curr = self.models.m_cf.model.model_polynomial.feval(Y[:,0])
                     mfy_next = self.models.m_cf.model.model_polynomial.feval(y_next)
                     fy_curr = self.models.m_cf.model.f[0]
                     
@@ -871,8 +877,9 @@ class TrustRegionSQPFilter():
                     
         else:
             
-            fy_curr = iterates['fY'][0]
-            v_curr = iterates['v'][0]
+            fy_curr = self.models.m_cf.model.f[0]
+            v_curr = self.violations[0]
+            
             _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
             
             if (v_curr - v_next)**2 > 1E-6:        
@@ -914,7 +921,7 @@ class TrustRegionSQPFilter():
 
                 # STEP 2: Run simulation and build models
                 try:
-                    self.models = self.main_run(Y=new_y)
+                    self.models = self.main_run(Y=new_y, reorder=True)
                 except IllPoisedModel:
                     need_rebuild = False
                     need_model_improvement = True

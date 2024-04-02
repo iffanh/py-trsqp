@@ -119,8 +119,8 @@ class TRSQPTest(unittest.TestCase):
                                     constants=CONSTANTS)
         tr.optimize(max_iter=50)
         # print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], -1.9)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], -1.9)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], -1.9)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], -1.9)
         
     def test_trsqp_simple_budget(self):
         print("======== SIMPLE BUDGET ========")
@@ -150,8 +150,8 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=50)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=4)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=4)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], 1.0, places=4)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], 1.0, places=4)
         
     def test_trsqp_simple1(self):
         print("======== SIMPLE w CONSTRAINT ========")
@@ -170,8 +170,8 @@ class TRSQPTest(unittest.TestCase):
         sol0 = 36/28 #analytical solution
         sol1 = 8/28
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], sol0, places=3)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], sol1, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], sol0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], sol1, places=3)
         
     def test_trsqp_simple_no_feasible_solution(self):
         print("======== SIMPLE w NO FEASIBLE SOLUTION ========")
@@ -211,8 +211,8 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=2)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], 1.0, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], 1.0, places=2)
         
     def test_trsqp_rosen_with_disc(self):
         print("======== ROSENBROCK w DISC ========")
@@ -235,8 +235,8 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 1.0, places=2)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 1.0, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], 1.0, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], 1.0, places=2)
         
     def test_trsqp_rosen_with_ineq(self):
         print("======== ROSENBROCK w INEQ ========")
@@ -251,8 +251,8 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["stopping_radius"] = 1E-16
         tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0],
                                     cf=rosen, 
-                                    ub=[0.5, 1000],
-                                    lb=[-0.5, -1000],
+                                    ub=[0.5, 10],
+                                    lb=[-0.5, -10],
                                     eqcs=[], 
                                     ineqcs=[ineq1, ineq2, ineq3],
                                     opts={'solver': 'ipopt'}, 
@@ -260,8 +260,8 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
 
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 0.5, places=2)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 0.5*np.sqrt(3), places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], 0.5, places=2)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], 0.5*np.sqrt(3), places=2)
         
     def test_trsqp_ackley(self):
         print("======== ACKLEY ========")
@@ -284,8 +284,8 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], 0.0, places=3)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], 0.0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], 0.0, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], 0.0, places=3)
         
     def test_trsqp_mccormick(self):
         print("======== MCCORMICK ========")
@@ -310,13 +310,22 @@ class TRSQPTest(unittest.TestCase):
         tr.optimize(max_iter=1000)
         print(f"Total number of feval = {tr.iterates[-1]['total_number_of_function_calls']}")
         
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][0], -0.54719, places=3)
-        self.assertAlmostEqual(tr.iterates[-1]['y_curr'][1], -1.54719, places=3)
-        self.assertAlmostEqual(tr.iterates[-1]['fY'][0], -1.9133, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][0], -0.54719, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][1], -1.54719, places=3)
+        self.assertAlmostEqual(tr.iterates[-1]['best_point']['f'], -1.9133, places=3)
     
     # HEAVY TEST
     def test_trsqp_simple_but_many(self):
         print("======== HEAVY: SIMPLE BUT MANY ========")
+        CONSTANTS = {}
+        CONSTANTS["L_threshold"] = 1.0
+        CONSTANTS["kappa_vartheta"] = 0.1
+        CONSTANTS["eta_1"] = 0.1
+        CONSTANTS["eta_2"] = 0.4
+        CONSTANTS["gamma_0"] = 0.3
+        CONSTANTS["gamma_1"] = 0.7
+        CONSTANTS["gamma_2"] = 2.0
+        CONSTANTS["stopping_radius"] = 1E-12
         
         tr = tq.TrustRegionSQPFilter(x0=[-2.0]*10,
                                     cf=simple_but_many, 
@@ -332,7 +341,7 @@ class TRSQPTest(unittest.TestCase):
         
         sol = 1.000
         for i in range(10):
-            self.assertAlmostEqual(tr.iterates[-1]['y_curr'][i], sol, places=2)
+            self.assertAlmostEqual(tr.iterates[-1]['best_point']['y'][i], sol, places=2)
               
 if __name__ == '__main__':
     # begin the unittest.main()
