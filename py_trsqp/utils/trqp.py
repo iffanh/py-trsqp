@@ -206,8 +206,10 @@ class TRQP():
         # tr radius as input bound      
         # ubx = np.min((np.zeros(center.shape) + 1.0, (np.array(ub) - center)/radius), axis=0) 
         # lbx = np.max((np.zeros(center.shape) - 1.0, (np.array(lb) - center)/radius), axis=0)
-        ubx = np.zeros(center.shape) + 1.0 
-        lbx = np.zeros(center.shape) - 1.0
+        # ubx = np.zeros(center.shape) + 1.0 
+        # lbx = np.zeros(center.shape) - 1.0
+        ubx = (np.array(ub) - center)/radius
+        lbx = (np.array(lb) - center)/radius
         
         lbx[lbx > ubx] = ubx[lbx > ubx]
         
