@@ -251,8 +251,8 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["stopping_radius"] = 1E-16
         tr = tq.TrustRegionSQPFilter(x0=[0.0,0.0], #x0=[-2.,1.0],
                                     cf=rosen, 
-                                    ub=[0.5, 10],
-                                    lb=[-0.5, -10],
+                                    ub=[0.5, 1000],
+                                    lb=[-0.5, -1000],
                                     eqcs=[], 
                                     ineqcs=[ineq1, ineq2, ineq3],
                                     opts={'solver': 'ipopt'}, 
@@ -294,7 +294,6 @@ class TRSQPTest(unittest.TestCase):
         CONSTANTS["eta_1"] = 0.001
         CONSTANTS["eta_2"] = 0.002
         CONSTANTS["gamma_0"] = 0.5
-        
         CONSTANTS["gamma_1"] = 0.7
         CONSTANTS["gamma_2"] = 1.5
         CONSTANTS["init_radius"] = 1.0

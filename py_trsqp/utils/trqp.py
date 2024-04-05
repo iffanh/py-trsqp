@@ -153,7 +153,8 @@ class TRQP():
             # solve TRQP problem
             solver = ca.nlpsol('TRQP_composite', 'ipopt', nlp, opts)
             # sol = solver(x0=center+(radius/1000), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
-            sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+            # sol = solver(x0=center+(radius/1E+8), ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
+            sol = solver(x0=radius/1E+8, ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
             # sol = solver(x0=center, ubx=ubx, lbx=lbx, ubg=ubg, lbg=lbg)
             is_compatible = True
                     

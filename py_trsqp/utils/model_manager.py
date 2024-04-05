@@ -98,28 +98,28 @@ class InequalityConstraintModel():
         return f"InequalityConstraintModel(index={self.index}, model = {self.model.model_polynomial.symbol})"
 
 class ViolationModel():
-    def __init__(self, input_symbols, m_eqcs:EqualityConstraintModels, m_ineqcs:InequalityConstraintModels, Y:np.ndarray, fail_flag:bool=False) -> None:
+    def __init__(self, input_symbols, m_cf:CostFunctionModel, m_eqcs:EqualityConstraintModels, m_ineqcs:InequalityConstraintModels, Y:np.ndarray, fail_flag:bool=False) -> None:
         
     
         if fail_flag:
             self.violations = np.array([None])
         else:
             # create violation function Eq 15.5.3
-            v = 0.0
-            for m in m_eqcs.models:
-                v = ca.fmax(v, ca.fabs(m.model.model_polynomial.symbol))
+            # v = 0.0
+            # for m in m_eqcs.models:
+            #     v = ca.fmax(v, ca.fabs(m.model.model_polynomial.symbol))
         
-            for m in m_ineqcs.models:
-                v = ca.fmax(v, ca.fmax(0, -m.model.model_polynomial.symbol)) # TODO:ADHOC
+            # for m in m_ineqcs.models:
+            #     v = ca.fmax(v, ca.fmax(0, -m.model.model_polynomial.symbol)) # TODO:ADHOC
                 
-            self.symbol = v
-            self.feval = ca.Function('Violation', [input_symbols], [self.symbol])
+            # self.symbol = v
+            # self.feval = ca.Function('Violation', [input_symbols], [self.symbol])
             
-            self.violations = []
-            for i in range(Y.shape[1]):
-                self.violations.append(self.feval(Y[:,i]).full()[0][0])
+            # self.violations = []
+            # for i in range(Y.shape[1]):
+            #     self.violations.append(self.feval(Y[:,i]).full()[0][0])
                 
-            self.violations = np.array(self.violations)
+            # self.violations = np.array(self.violations)
 
             # NORMALIZED
             v = 0.0
@@ -130,7 +130,12 @@ class ViolationModel():
                 v = ca.fmax(v, ca.fmax(0, -m.model.model_polynomial_normalized.symbol)) # TODO:ADHOC
                 
             self.symbol_normalized = v
-            self.feval_normalized = ca.Function('Violation', [input_symbols], [self.symbol_normalized])
+            self.feval = ca.Function('Violation', [input_symbols], [self.symbol_normalized])
+            
+            center = m_cf.model.center
+            radius = m_cf.model.tr_radius
+            
+            self.feval_normalized = lambda x: self.feval((x - center)/radius)
             
             self.violations_normalized = []
             for i in range(Y.shape[1]):

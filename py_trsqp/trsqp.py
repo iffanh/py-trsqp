@@ -470,7 +470,7 @@ class TrustRegionSQPFilter():
                                             Y=Y, 
                                             fYs=fYs_ineq)
         
-        m_viol = ViolationModel(input_symbols=self.input_symbols, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, Y=Y, fail_flag=fail_flag)
+        m_viol = ViolationModel(input_symbols=self.input_symbols, m_cf = m_cf, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, Y=Y, fail_flag=fail_flag)
         
               
         return ModelManager(input_symbols=self.input_symbols, m_cf=m_cf, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, m_viol=m_viol)
@@ -742,7 +742,7 @@ class TrustRegionSQPFilter():
         if best_point['f'] is not None:
             # print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             # print(f"It. {k}: Best point, x= {best_point['y']}, f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
-            print(f"It. {k}: f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
+            print(f"It. {k}: f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             return iterates, True
         
         else: # failed simulation
@@ -806,10 +806,12 @@ class TrustRegionSQPFilter():
                     
                     # y_curr = self.denorm(Y[:,0])
                     
-                    v_curr = self.models.m_viol.feval(Y[:,0]).full()[0][0]
+                    v_curr = self.models.m_viol.feval_normalized(Y[:,0]).full()[0][0]
                     
-                    mfy_curr = self.models.m_cf.model.model_polynomial.feval(Y[:,0])
-                    mfy_next = self.models.m_cf.model.model_polynomial.feval(y_next)
+                    # mfy_curr = self.models.m_cf.model.model_polynomial_normalized.feval(Y[:,0])
+                    # mfy_next = self.models.m_cf.model.model_polynomial_normalized.feval(y_next)
+                    mfy_curr = self.models.m_cf.model.interpolate(Y[:,0])
+                    mfy_next = self.models.m_cf.model.interpolate(y_next)
                     fy_curr = self.models.m_cf.model.f[0]
                     
                     rho = (fy_curr - fy_next)/(mfy_curr - mfy_next)

@@ -207,6 +207,7 @@ class LagrangePolynomials:
         self.sample_set = SampleSets(y=y, sort_type=sort_type, f=f)
         
         self.y = self.sample_set.y
+        self.center = self.y[:,[0]]
         self.f = f
         if (self.f is not None):
             if (self.y.shape[1] != self.f.shape[0]):
@@ -230,32 +231,34 @@ class LagrangePolynomials:
         
         if lpolynomials is None:
             if interpolation_type == 'minimum':
-                self.lagrange_polynomials = self._build_lagrange_polynomials(self.polynomial_basis, self.y, self.input_symbols)
-                self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
+                # self.lagrange_polynomials = self._build_lagrange_polynomials(self.polynomial_basis, self.y, self.input_symbols)
+                self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.center)/self.tr_radius, self.input_symbols)
             elif interpolation_type == 'frobenius':
                 # frobenius norm can only be used when the number of data points are between n+1 <= p <= 1/2 (n+1)(n+2)
                 
                 if self.N + 1 <= self.P and self.P < 0.5*(self.N+1)*(self.N+2):
-                    self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.y, is_gen=False)
-                    self.lagrange_polynomials_normalized = self._build_lagrange_polynomials_frobenius((self.y - self.y[:,[0]])/self.tr_radius, is_gen=False)
+                    # self.lagrange_polynomials = self._build_lagrange_polynomials_frobenius(self.y, is_gen=False)
+                    self.lagrange_polynomials_normalized = self._build_lagrange_polynomials_frobenius((self.y - self.center)/self.tr_radius, is_gen=False)
                 else:
                     # raise Exception(f"Number of points must be between {self.N + 1} and {int(0.5*(self.N+1)*(self.N+2))}")
                     # print(f"Number of points should be between {self.N + 1} and {int(0.5*(self.N+1)*(self.N+2))}. Currently {self.P}")
-                    self.lagrange_polynomials = self._build_lagrange_polynomials(self.polynomial_basis, self.y, self.input_symbols)
-                    self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
+                    # self.lagrange_polynomials = self._build_lagrange_polynomials(self.polynomial_basis, self.y, self.input_symbols)
+                    self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.center)/self.tr_radius, self.input_symbols)
 
             else:
                 raise Exception(f"Interpolation type of {interpolation_type} is not known. Try 'minimum' of 'frobenius'")
         else: # When lagrange polynomials is constructed manually
-            self.lagrange_polynomials = lpolynomials
-            self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
+            # self.lagrange_polynomials = lpolynomials
+            self.lagrange_polynomials_normalized = lpolynomials
+            # self.lagrange_polynomials_normalized = self._build_lagrange_polynomials(self.polynomial_basis, (self.y - self.y[:,[0]])/self.tr_radius, self.input_symbols)
         
-        self.model_polynomial = self._build_model_polynomial(self.lagrange_polynomials, self.f, self.input_symbols)
+        # self.model_polynomial = self._build_model_polynomial(self.lagrange_polynomials, self.f, self.input_symbols)
         self.model_polynomial_normalized = self._build_model_polynomial(self.lagrange_polynomials_normalized, self.f, self.input_symbols)
-        if self.model_polynomial is None:
-            self.gradient, self.Hessian = None, None
+        if self.model_polynomial_normalized is None:
+            # self.gradient, self.Hessian = None, None
+            self.gradient_normalized, self.Hessian_normalized = None, None
         else: 
-            self.gradient, self.Hessian = self._get_coefficients_from_expression(self.model_polynomial.symbol, self.input_symbols, self.pdegree)
+            # self.gradient, self.Hessian = self._get_coefficients_from_expression(self.model_polynomial.symbol, self.input_symbols, self.pdegree)
             self.gradient_normalized, self.Hessian_normalized = self._get_coefficients_from_expression(self.model_polynomial_normalized.symbol, self.input_symbols, self.pdegree)    
         
         self.index_of_largest_lagrangian_norm = None
@@ -271,7 +274,8 @@ class LagrangePolynomials:
         Returns:
             float: Interpolation value
         """
-        return self.model_polynomial.feval(x)
+        # return self.model_polynomial.feval(x)
+        return self.model_polynomial_normalized.feval((x - self.y[:,0])/self.tr_radius)
         
     def poisedness(self, rad=None, center=None) -> Poisedness:
         """Calculate the minimum poisedness given the set of interpolation points.'
@@ -299,9 +303,9 @@ class LagrangePolynomials:
             max_sol, feval = lp._find_max_given_boundary(x0=center, rad=rad, center=center)        
             max_sols.append(max_sol)
             
-            Lambdas.append(feval)
+            Lambdas.append(np.abs(feval))
             
-            if feval > Lambda:
+            if np.abs(feval) > Lambda:
                 Lambda = np.abs(feval)
                 index = i
             
@@ -407,7 +411,9 @@ class LagrangePolynomials:
         lpolynomials = []
         for i in range(lagrange_matrix.shape[0]):
             lpolynomial = lagrange_matrix[i, :][0]
-            lpolynomials.append(LagrangePolynomial(lpolynomial, Function(f'lambda_{i}', [input_symbols], [lpolynomial])))
+            f_lpolynomial = Function(f'lambda_{i}', [input_symbols], [lpolynomial])
+            
+            lpolynomials.append(LagrangePolynomial(lpolynomial, f_lpolynomial))
 
         return lpolynomials
     

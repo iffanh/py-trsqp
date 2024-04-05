@@ -77,9 +77,9 @@ class LagrangePolynomialsTest(unittest.TestCase):
                                    pdegree=2)
         l.initialize(y=YGOOD, f=FGOOD, sort_type='function')
         
-        model = l.model_polynomial
-        for meval, feval in zip(model.feval(YGOOD).full()[0, :], FGOOD):
-            self.assertAlmostEqual(meval, feval)        
+        # model = l.model_polynomial_normalized
+        for y, feval in zip(YGOOD.T, FGOOD):
+            self.assertAlmostEqual(l.interpolate(y), feval)        
         
 if __name__ == '__main__':
     # begin the unittest.main()

@@ -81,17 +81,18 @@ def generate_uniform_sample_nsphere(k:int, d:int, L:float=1.0):
                  
         # replace value
         new_y[:, pindex] = new_point
-        lpoly = lpolynomials.lagrange_polynomials[pindex]
+        lpoly = lpolynomials.lagrange_polynomials_normalized[pindex]
         
         ## Algorithm 6.1
-        if lpoly.feval(new_point) == 0:
+        # if lpoly.feval(new_point) == 0:
+        if lpoly.feval((new_point - new_y[:,0])/1.0) == 0:
             raise Exception("Problem here")
         
         new_lpoly = lpoly.symbol/lpoly.feval(new_point) #(6.9)
         
         # update lagrange polynomial
         new_lpolynomials = []
-        for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials):
+        for j, _lpoly in enumerate(lpolynomials.lagrange_polynomials_normalized):
             if j == pindex:
                 function = Function(f'lambda_{i}', [input_symbols], [new_lpoly])                         
                 new_lpolynomials.append(LagrangePolynomial(new_lpoly, function))
@@ -185,7 +186,8 @@ class ModelImprovement:
                     lpoly = lpolynomials.lagrange_polynomials_normalized[pindex]
                     
                     ## Algorithm 6.1
-                    if lpoly.feval(new_point) == 0:
+                    if lpoly.feval((new_point - new_y[:,0])/tr_radius) == 0:
+                        print(lpoly.symbol, lpoly, new_y) 
                         raise Exception("Problem here")
                     
                     new_lpoly = lpoly.symbol/lpoly.feval(new_point) #(6.9)
