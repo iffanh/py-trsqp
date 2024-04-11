@@ -159,10 +159,10 @@ class Poisedness:
         self._validate_class()
         
     def _validate_class(self):
-        assert np.max(self.poisedness) == self.poisedness[self.index]
+        assert np.nanmax(self.poisedness) == self.poisedness[self.index]
     
     def max_poisedness(self) -> float:
-        return np.max(self.poisedness)
+        return np.nanmax(self.poisedness)
     
     def point_to_max_poisedness(self) -> np.ndarray:
         return self.max_points[self.index]
