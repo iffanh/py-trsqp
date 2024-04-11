@@ -464,11 +464,13 @@ class TrustRegionSQPFilter():
 
         m_eqcs = EqualityConstraintModels(input_symbols=self.input_symbols, 
                                     Y=Y, 
-                                    fYs=fYs_eq)
+                                    fYs=fYs_eq,
+                                    cfm=m_cf)
 
         m_ineqcs = InequalityConstraintModels(input_symbols=self.input_symbols, 
                                             Y=Y, 
-                                            fYs=fYs_ineq)
+                                            fYs=fYs_ineq,
+                                            cfm=m_cf)
         
         m_viol = ViolationModel(input_symbols=self.input_symbols, m_cf = m_cf, m_eqcs=m_eqcs, m_ineqcs=m_ineqcs, Y=Y, fail_flag=fail_flag)
         
