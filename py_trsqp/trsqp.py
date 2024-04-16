@@ -741,7 +741,7 @@ class TrustRegionSQPFilter():
         iterates["it_code"] = it_code
         
         #Inform user
-        if best_point['f'] is not None:
+        if (best_point['f'] is not None) and (self.models.m_cf.model.f[0] is not None):
             # print(f"It. {k}: Best point, x= {self.denorm(y_curr)}, f= {f_curr:.5e}, v= {v_curr:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(y_curr)):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             # print(f"It. {k}: Best point, x= {best_point['y']}, f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, g= {np.linalg.norm(self.models.m_cf.model.gradient(best_point['y'])):.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
             print(f"It. {k}: f= {best_point['f']:.5e}, v= {best_point['v']:.5e}, r= {radius:.2e}, it_code= {it_code}, nevals= {neval}, n_points= {Y.shape[1]}")
