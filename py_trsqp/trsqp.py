@@ -604,7 +604,8 @@ class TrustRegionSQPFilter():
     def _update_radius(self, nd:int, nx:int, factor:float, radius:float):
     
         
-        if nx < 2*nd + 1: 
+        # if nx < 2*nd + 1: 
+        if nx < self.opts['max_points']:
             # we don't punish bad prediction because we don't have sufficient points for linear model
             return radius
         else:
@@ -886,11 +887,14 @@ class TrustRegionSQPFilter():
             
             _ = self.filter_SQP.add_to_filter((fy_curr, v_curr))
             
-            if (v_curr - v_next)**2 > 1E-6:        
-                # Enlarge radius when TRQP is not compatible -> will diverge if there is no feasible solutions
+            try:
+                if (v_curr - v_next)**2 > 1E-6:        
+                    # Enlarge radius when TRQP is not compatible -> will diverge if there is no feasible solutions
+                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
+                else:
+                    radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+            except:
                 radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_2'], radius)
-            else:
-                radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
             
             it_code = 7
             Y = self.change_point(self.models, Y, y_next, None, None, radius, it_code)
