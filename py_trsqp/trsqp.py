@@ -874,7 +874,8 @@ class TrustRegionSQPFilter():
                     # need_model_improvement = False
                     Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
             else:
-                radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                # radius = self._update_radius(Y.shape[0], Y.shape[1], self.constants['gamma_0'], radius)
+                radius = radius*self.constants['gamma_0']
                 it_code = 13
                 Y = self.change_point(self.models, Y, y_next, fy_next, v_next, radius, it_code)
                 need_rebuild = True
