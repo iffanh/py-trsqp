@@ -1,4 +1,4 @@
-# py-trsqp: Python Implementation of Quadratic Constraints Quadratic Programming Trust-Region Filter Algorithm 
+# py-trsqp: Python Implementation of Quadratically Constraints Quadratic Programming Trust-Region Filter Algorithm 
 
 This repository contains a trust-region method for black-box optimization problems with the handling of output constraints. The algorithm used is of SQP-filter with a few modifications, primarily on the use of QCQP instead of SQP in solving the subproblems, providing an efficient approach for solving optimization problems where the objective function and constraints are not explicitly known but can be evaluated through a black-box function. It incorporates a filter mechanism to handle constraints, allowing for feasible and improved solutions.
 
