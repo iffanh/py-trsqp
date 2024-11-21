@@ -1,8 +1,6 @@
-# py-trsqp: Python Implementation of Sequential Quadratic Programming Trust-Region Filter Algorithm 
+# py-trsqp: Python Implementation of Quadratic Constraints Quadratic Programming Trust-Region Filter Algorithm 
 
-This repository contains a trust-region method for black-box optimization problems with the handling of output constraints. The algorithm used is the SQP-filter with a few modifications, providing an efficient approach for solving optimization problems where the objective function and constraints are not explicitly known but can be evaluated through a black-box function.
-
-The SQP-filter algorithm employed in this repository is a variant of the Sequential Quadratic Programming (SQP) method. It incorporates a filter mechanism to handle constraints, allowing for feasible and improved solutions.
+This repository contains a trust-region method for black-box optimization problems with the handling of output constraints. The algorithm used is of SQP-filter with a few modifications, primarily on the use of QCQP instead of SQP in solving the subproblems, providing an efficient approach for solving optimization problems where the objective function and constraints are not explicitly known but can be evaluated through a black-box function. It incorporates a filter mechanism to handle constraints, allowing for feasible and improved solutions.
 
 To solve the TRQP subproblem, the repository utilizes IPOPT, a powerful optimization solver. IPOPT (Interior Point OPTimizer) is known for its effectiveness in solving large-scale nonlinear optimization problems, including constrained optimization.
 
@@ -79,7 +77,7 @@ The hyperparameters for the algorithm is defined by the `constants` as a diction
 | gamma_1          | $\gamma_1$ | radius multiplier factor when $\eta_1 \leq \rho < \eta_2$ | $\gamma_0 < \gamma_1 < 1$ |
 | gamma_2          | $\gamma_2$ | radius multiplier factor when $\eta_2 \leq \rho$ | $1 < \gamma_2$ |
 | eta_1            | $\eta_1$   | ratio 1 threshold | $0 < \eta_1 < \eta_2$ |
-| eta_1            | $\eta_1$   | ratio 1 threshold | $\eta_1 < \eta_2 < 1$ |
+| eta_2            | $\eta_2$   | ratio 1 threshold | $\eta_1 < \eta_2 < 1$ |
 
 
 The decision variables will be transformed into a normalized space. Note that the initial radius and the stopping radius is applied to this normalized space.
@@ -87,6 +85,8 @@ The decision variables will be transformed into a normalized space. Note that th
 ## Paper
 The following paper(s) use this package:
 1. Hannanu, M., Silva, T. L., Camponogara, E., and M. Hovd. "Well Control Optimization with Output Constraint Handling by Means of a Derivative-Free Trust Region Algorithm." Paper presented at the ADIPEC, Abu Dhabi, UAE, October 2023. https://doi.org/10.2118/216962-MS
+2. Hannanu, M.I., Camponogara, E., Silva, T.L. et al. A modified derivative-free SQP-filter trust-region method for uncertainty handling: application in gas-lift optimization. Optim Eng (2024). https://doi.org/10.1007/s11081-024-09909-0 
+3. Hannanu, M., Silva, T. L., Camponogara, E., and M. Hovd. "Derivative-Free Well Control Optimization under Uncertainty." Paper presented at the ECMOR, Oslo, Norway, September 2024. https://doi.org/10.3997/2214-4609.202437013 
 
 ## Reference
 
