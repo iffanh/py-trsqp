@@ -1,4 +1,6 @@
 casadi
 numpy
 scipy
+threadpoolctl
 matplotlib
+pytest

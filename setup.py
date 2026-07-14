@@ -14,9 +14,9 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     # packages=setuptools.find_packages('py_trsqp', 'py_trsqp.utils', exclude=['test']),
-    packages=['py_trsqp', 'py_trsqp.utils'],
+    packages=['py_trsqp', 'py_trsqp.core'],
     name='py_trsqp',
-    version='0.1.2',
+    version='0.2.0',
     author='Muhammad Iffan Hannanu',
     author_email='iffan.hannanu@gmail.com',
     description='First Official Release',
