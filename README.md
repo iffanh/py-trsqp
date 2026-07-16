@@ -74,8 +74,10 @@ Once the repository has been downloaded and set up as described above, you can
 run the example scripts directly:
 
 ```shell
-python examples/simple_example.py         # unconstrained example
-python examples/constrained_example.py    # output-constrained example
+python examples/simple_example.py                    # unconstrained quadratic example
+python examples/constrained_example.py                # output-constrained quadratic example
+python examples/rosenbrock_example.py                  # unconstrained Rosenbrock example
+python examples/rosenbrock_constrained_example.py      # output-constrained Rosenbrock example
 ```
 
 Each script prints a summary of the optimization run and writes convergence/

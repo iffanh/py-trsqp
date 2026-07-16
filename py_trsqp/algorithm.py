@@ -205,11 +205,16 @@ class DFTRFilter:
         max_points = self.c.max_points
         while Y.shape[1] > max_points:
             try:
+                # fit_lagrange_set raises ValueError if Y still has more
+                # points than the degree-2 basis can fit (q = (n+1)(n+2)/2) --
+                # possible here since Y can carry one point more than
+                # max_points before this loop trims it, and max_points may
+                # be set as high as q itself.
                 lset = fit_lagrange_set(Y, radius=self.radius)
                 poised = lset.poisedness(radius=self.radius)
                 order = np.argsort(-poised.values)
                 idx = next((int(i) for i in order if i != 0), Y.shape[1] - 1)
-            except (IllPoisedModel, PoisednessIsZeroException):
+            except (IllPoisedModel, PoisednessIsZeroException, ValueError):
                 idx = Y.shape[1] - 1
             Y = np.delete(Y, idx, axis=1)
         return Y
