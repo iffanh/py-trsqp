@@ -89,6 +89,16 @@ class DFTRFilter:
         self._cache = {}
         self.best: Optional[IterationRecord] = None
 
+        # Tracks the worst (largest-magnitude) f and vartheta seen across every
+        # successful evaluation, and how many non-finite results have been
+        # recovered from. Used to scale _failure_sentinel() to the problem's
+        # own units instead of a fixed constant, and surfaced in
+        # termination_status so a run's outcome shows whether it had to
+        # recover from any non-finite cf/eqcs/ineqcs results.
+        self._worst_f = 0.0
+        self._worst_vartheta = 0.0
+        self._simulation_failures = 0
+
     # -- evaluation / caching -------------------------------------------------
     #
     # A single cache keyed by the (normalized) point's bytes backs every
@@ -96,8 +106,24 @@ class DFTRFilter:
     # trial-point evaluation, and Restore's calls all funnel through
     # `_get_full`, so a point already evaluated as part of the sample set
     # (or vice versa) is never re-run through the user's black box, matching
-    # Remark 11's "one simulation per iteration" accounting exactly rather
-    # than by coincidence of which code path happened to ask first.
+    # Remark 11's "one simulation per iteration" accounting.
+    #
+    # `_get_full` *raises* FailedSimulation when cf/eqcs/ineqcs returns a
+    # non-finite value. Callers that use the result to *fit* a model
+    # (_build_models, restore.py's _refit_models) need that exception to
+    # propagate rather than receive a fabricated number: Lagrange
+    # interpolation coefficients are a linear function of the sample values,
+    # so one synthetic value would corrupt the whole fitted gradient, not
+    # just mark that one point as bad. Those callers repoise and retry
+    # instead (see optimize()'s FailedSimulation branch and restore()'s
+    # repoise-on-stall branch).
+    #
+    # `_evaluate` wraps `_get_full` for the other kind of call: single
+    # trial-point evaluations (the ordinary step's candidate, Restore's
+    # candidate) that only ever feed a scalar filter accept/reject decision,
+    # never a gradient. There a large-but-finite sentinel is safe to return
+    # instead of raising -- the filter naturally rejects it, and the existing
+    # radius-shrink/repoise machinery for a rejected step takes it from there.
 
     def _get_full(self, xn: np.ndarray):
         key = xn.tobytes()
@@ -106,10 +132,24 @@ class DFTRFilter:
             return cached
         f, eqs, ineqs = self.problem.evaluate(xn)
         self._cache[key] = (f, eqs, ineqs)
+        self._worst_f = max(self._worst_f, abs(f))
+        self._worst_vartheta = max(self._worst_vartheta, float(geometry.violation(eqs, ineqs)))
         return f, eqs, ineqs
 
+    def _failure_sentinel(self):
+        """A (f, vartheta) pair guaranteed worse than anything legitimately
+        observed so far, scaled to the problem rather than a fixed constant
+        -- used only where the caller just needs the filter to reject the
+        point, never where a value feeds model-fitting."""
+        penalty = 2.0 * max(self._worst_f, self._worst_vartheta, 1.0)
+        return penalty, penalty
+
     def _evaluate(self, xn: np.ndarray):
-        f, eqs, ineqs = self._get_full(xn)
+        try:
+            f, eqs, ineqs = self._get_full(xn)
+        except FailedSimulation:
+            self._simulation_failures += 1
+            return self._failure_sentinel()
         return f, geometry.violation(eqs, ineqs)
 
     def _build_models(self, Y: np.ndarray):
@@ -230,8 +270,19 @@ class DFTRFilter:
                 self.radius *= self.c.gamma0
                 continue
             except FailedSimulation:
-                self.termination_status = "Simulation failed"
-                break
+                # A sample point returned a non-finite value -- e.g. a domain
+                # restriction (log/sqrt) the box bounds don't encode. Handled
+                # exactly like IllPoisedModel: repoise the set and shrink
+                # toward the incumbent, rather than fitting a model from a
+                # fabricated value. The `self.radius < self.c.min_radius`
+                # check at the top of the loop is the circuit breaker -- if
+                # every point this close to the incumbent is invalid, radius
+                # shrinks until it trips and the run ends with "Minimum
+                # radius reached" instead of raising.
+                self._simulation_failures += 1
+                Y = repoise(Y, self.radius, self.c.lambda_th)
+                self.radius *= self.c.gamma0
+                continue
 
             center = Y[:, 0]
             ineq_models = ineq_models + self._bound_ineq_models(center)
@@ -300,6 +351,10 @@ class DFTRFilter:
 
         if self.termination_status is None:
             self.termination_status = "Maximum iterations"
+        if self._simulation_failures:
+            self.termination_status += (
+                f" (recovered from {self._simulation_failures} non-finite simulation result(s))"
+            )
         self.Y = Y
         return self
 
@@ -341,6 +396,13 @@ class DFTRFilter:
             return Y, it_type + "-rejected", center
 
     def _restoration_step(self, Y, eq_models, ineq_models, center, f_center, vartheta_tilde):
+        # `evaluate=self._evaluate` absorbs a non-finite result into a
+        # sentinel internally (counted in self._simulation_failures) since
+        # it's only ever a trial-point check against the filter, never a
+        # model-fitting input. `evaluate_full=self._get_full` is the raw,
+        # exception-raising path restore()'s own model refit needs (see
+        # restore()'s docstring); any failures there come back via `result`
+        # and are folded into the same counter below.
         result = restore_mod.restore(
             center, eq_models, ineq_models,
             evaluate=self._evaluate,
@@ -348,9 +410,13 @@ class DFTRFilter:
             f_k=f_center,
             vartheta_k=vartheta_tilde,
             delta0=self.radius,
+            evaluate_full=self._get_full,
+            n_eq=self.problem.n_eq,
+            n_ineq=self.problem.n_ineq,
             gamma0=self.c.gamma0,
             gamma1=self.c.gamma1,
         )
+        self._simulation_failures += result.n_simulation_failures
         if not result.success:
             return Y, "stopped", center
 

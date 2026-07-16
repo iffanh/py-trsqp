@@ -16,26 +16,38 @@ $$ c_i = 0, \quad i \in \mathcal{E} $$
 
 ## Installation
 
-Make sure you have a compatible Python environment set up before installing the dependencies.
+Requires Python 3.9+ and pip.
 
-First, install the dependencies: 
+### Option 1: Install directly from GitHub
 
-```shell
-pip install numpy
-pip install scipy
-pip install casadi
-pip install matplotlib
-```
-
-To install the `py-trsqp` package, run the following command:
+This is the quickest way to get the package if you just want to use it in your own project:
 
 ```shell
 pip install git+https://github.com/iffanh/py-trsqp.git
 ```
 
-## Examples
+This pulls in all required dependencies automatically (`numpy`, `scipy`, `casadi`, `matplotlib`, `threadpoolctl`).
 
-Here is a simple usage of the package.
+### Option 2: Download the source and install locally
+
+Clone the repository if you want to run the bundled examples, run the test suite, or modify the code:
+
+```shell
+git clone https://github.com/iffanh/py-trsqp.git
+cd py-trsqp
+python -m venv .venv
+source .venv/bin/activate      # on Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pip install -e .
+```
+
+> On WSL/Ubuntu systems where `python -m venv` fails with an `ensurepip` error,
+> see `DEVELOPMENT.md` for a workaround.
+
+## Running the package
+
+### Quick usage
+
 ```python
 from py_trsqp import DFTRFilter
 
@@ -56,16 +68,54 @@ opt.optimize(max_iter=20)
 print(opt.best.x, opt.best.f, opt.termination_status)
 ```
 
+### Running the bundled examples
+
+Once the repository has been downloaded and set up as described above, you can
+run the example scripts directly:
+
+```shell
+python examples/simple_example.py         # unconstrained example
+python examples/constrained_example.py    # output-constrained example
+```
+
+Each script prints a summary of the optimization run and writes convergence/
+trajectory plots to `examples/results/`.
+
+The `examples` folder also contains Jupyter notebooks demonstrating the
+package on various optimization problems. To run them, install Jupyter/
+`ipykernel` in the same environment and open the notebooks from the `examples`
+folder.
+
 > **Note:** the public API changed in v0.2.0 (the derivative-free trust-region
 > filter method, "DFTR-Filter", replacing the earlier
 > `py_trsqp.trsqp.TrustRegionSQPFilter` heuristic). The `examples/` notebooks
 > still show the old interface and need updating to `py_trsqp.DFTRFilter`
-> before they will run again.
+> before they will run again; the `examples/*.py` scripts above already use
+> the current API.
 
+### Running the tests
 
+```shell
+python -m pytest tests/ -q
+```
 
-The `examples` folder in this repository contains notebooks that demonstrate the usage of the this package. These notebooks showcase various optimization problems and illustrate how to apply the trust-region method with output constraints to solve them. To explore the examples, navigate to the `examples` folder and run the notebooks using a Jupyter environment.
+### Benchmarking against CUTEst
 
+The `benchmarks/` folder runs DFTR-Filter against problems from the
+[CUTEst](https://github.com/ralna/CUTEst) test collection (via
+[pycutest](https://github.com/jfowkes/pycutest)) and reports success rate,
+function evaluations, and wall time:
+
+```shell
+python benchmarks/cutest_benchmark.py --n-max 20 --count 40 --csv results.csv
+```
+
+Two further scripts compare DFTR-Filter against other open-source
+derivative-free solvers (COBYLA, COBYQA, Py-BOBYQA, CMA-ES, Nelder-Mead) on
+the same problems, rather than a single gradient-based reference; see
+`DEVELOPMENT.md`, "CUTEst benchmark setup", for the full toolchain setup
+(pycutest requires a compiled CUTEst/SIFDecode installation, which isn't a
+plain pip dependency) and usage of each script.
 
 ## Options
 The options for the algorithm can be set using the `constants` dictionary passed to `DFTRFilter(...)`, or the `budget`/`max_iter` arguments to `.optimize()`. See `py_trsqp.algorithm.Constants` for the full, authoritative list and defaults. Notable ones:
