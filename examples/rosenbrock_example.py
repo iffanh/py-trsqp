@@ -28,7 +28,8 @@ Four constants tuned together get within f ~ 2e-7 of the true minimum in
     sample set instead of making progress.
 
 Prints a summary and writes two figures (convergence curves and the
-optimization path) into examples/results/.
+optimization path), plus an animated GIF of the trust region/sample
+set/model evolving, into examples/results/.
 
 Run from the repo root or from examples/:
     python examples/rosenbrock_example.py
@@ -66,6 +67,7 @@ def main():
         # See the module docstring for why each of these matters here.
         constants={"init_radius": 1.5, "max_radius": 2.0, "gamma1": 4.0,
                    "max_points": 6, "lambda_th": 20.0},
+        record_history=True,   # needed for the trust-region animation below
     )
     opt.optimize(max_iter=600)
 
@@ -81,6 +83,11 @@ def main():
                                     title="Rosenbrock: unconstrained optimization path"),
              os.path.join(OUT, "rosenbrock_path.png"))
     plt.close("all")
+
+    print("\nwriting animation:")
+    viz.animate_trust_region(opt, cf, os.path.join(OUT, "rosenbrock_trust_region.gif"),
+                              xlim=(-2, 2), ylim=(-2, 2), solution=[1.0, 1.0],
+                              title="Rosenbrock: trust region evolution")
 
 
 if __name__ == "__main__":

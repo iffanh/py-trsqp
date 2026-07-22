@@ -159,27 +159,32 @@ system packages.
 ```bash
 source scripts/cutest_env.sh   # or export the vars above manually
 python -m pytest tests/test_cutest_benchmark.py -v      # fast regression smoke test (~7 problems)
-python benchmarks/cutest_benchmark.py --n-max 20 --count 40 --csv results.csv   # broader sweep + metrics
+python benchmarks/cutest_benchmark.py --n-max 20 --count 40 --csv results.csv   # DFTR-only sweep + metrics
 ```
 
 DFTR-Filter is derivative-free and builds quadratic interpolation models, so
 per-iteration cost grows like O(n^2); `--n-max` keeps the sweep to problems the
 method is actually designed for. `benchmarks/cutest_benchmark.py` runs each
 problem in its own subprocess with a wall-clock `--timeout`, so one
-pathological problem can't hang the whole sweep. Each CUTEst problem is
-compared against a gradient-based SciPy reference (SLSQP/L-BFGS-B, using
-CUTEst's exact derivatives - DFTR-Filter itself never sees them).
+pathological problem can't hang the whole sweep. Each solver's result is
+judged against a gradient-based SciPy reference (SLSQP/L-BFGS-B, using
+CUTEst's exact derivatives - the derivative-free solvers never see them).
 
-Two further scripts compare DFTR-Filter against other derivative-free (not
-gradient-based) solvers on the same problems, rather than a single
-gradient-based reference:
+`--solvers` chooses which optimizer(s) to run on each problem; the default is
+`dftr` alone, but any subset of `dftr`, `cobyla`, `cobyqa`, `pybobyqa`,
+`cma`, `nelder-mead` can be run and compared side by side (the non-scipy ones
+need `pip install Py-BOBYQA cma`):
 
 ```bash
-# DFTR-Filter vs. Nelder-Mead/COBYLA on a given list of CUTEst problems
-python benchmarks/compare_dfo_baselines.py --problems AIRCRFTA BEALENE ...
+# DFTR-Filter against five other derivative-free solvers on the same problems
+python benchmarks/cutest_benchmark.py \
+    --solvers dftr cobyla cobyqa pybobyqa cma nelder-mead \
+    --n-max 20 --count 40 --csv results.csv
 
-# DFTR-Filter vs. the best of 5 alternatives (COBYLA, COBYQA, Py-BOBYQA,
-# CMA-ES, Nelder-Mead) across a CUTEst sample; requires
-# `pip install Py-BOBYQA cma` in addition to scipy
-python benchmarks/multi_solver_compare.py --n-max 20 --count 40 --csv results.csv
+# a single alternative on a hand-picked problem list
+python benchmarks/cutest_benchmark.py --solvers cobyla --count 5
 ```
+
+The summary reports, per solver, its success rate (feasible and within
+`--tol` of the reference objective) plus how often it had the best feasible
+objective across the sweep.

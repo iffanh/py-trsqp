@@ -103,8 +103,8 @@ python -m pytest tests/ -q
 
 ### Benchmarking against CUTEst
 
-The `benchmarks/` folder runs DFTR-Filter against problems from the
-[CUTEst](https://github.com/ralna/CUTEst) test collection (via
+`benchmarks/cutest_benchmark.py` runs derivative-free solvers against problems
+from the [CUTEst](https://github.com/ralna/CUTEst) test collection (via
 [pycutest](https://github.com/jfowkes/pycutest)) and reports success rate,
 function evaluations, and wall time:
 
@@ -112,12 +112,18 @@ function evaluations, and wall time:
 python benchmarks/cutest_benchmark.py --n-max 20 --count 40 --csv results.csv
 ```
 
-Two further scripts compare DFTR-Filter against other open-source
-derivative-free solvers (COBYLA, COBYQA, Py-BOBYQA, CMA-ES, Nelder-Mead) on
-the same problems, rather than a single gradient-based reference; see
-`DEVELOPMENT.md`, "CUTEst benchmark setup", for the full toolchain setup
+`--solvers` selects which optimizer(s) to run on each problem -- DFTR-Filter
+alone by default, or any subset of `dftr`, `cobyla`, `cobyqa`, `pybobyqa`,
+`cma`, `nelder-mead` compared side by side (the non-scipy ones need
+`pip install Py-BOBYQA cma`):
+
+```shell
+python benchmarks/cutest_benchmark.py --solvers dftr cobyla cobyqa pybobyqa cma nelder-mead
+```
+
+See `DEVELOPMENT.md`, "CUTEst benchmark setup", for the full toolchain setup
 (pycutest requires a compiled CUTEst/SIFDecode installation, which isn't a
-plain pip dependency) and usage of each script.
+plain pip dependency).
 
 ## Options
 The options for the algorithm can be set using the `constants` dictionary passed to `DFTRFilter(...)`, or the `budget`/`max_iter` arguments to `.optimize()`. See `py_trsqp.algorithm.Constants` for the full, authoritative list and defaults. Notable ones:

@@ -12,7 +12,8 @@ feasible, locally optimal point from an infeasible start rather than only
 showing the easier case of a feasible starting point.
 
 Prints a summary, cross-checks against SciPy SLSQP, and writes two figures
-(convergence curves and the path with the feasible region shaded) into
+(convergence curves and the path with the feasible region shaded), plus an
+animated GIF of the trust region/sample set/model evolving, into
 examples/results/.
 
 Run from the repo root or from examples/:
@@ -52,6 +53,7 @@ def main():
         lb=-2.0,
         ub=2.0,
         ineqcs=[disc],          # list of black-box inequality constraints
+        record_history=True,    # needed for the trust-region animation below
     )
     opt.optimize(max_iter=500)
 
@@ -78,6 +80,12 @@ def main():
                                     title="Rosenbrock: constrained path (feasible region shaded)"),
              os.path.join(OUT, "rosenbrock_constrained_path.png"))
     plt.close("all")
+
+    print("\nwriting animation:")
+    viz.animate_trust_region(opt, cf, os.path.join(OUT, "rosenbrock_constrained_trust_region.gif"),
+                              xlim=(-2, 2), ylim=(-2, 2), ineqs=[disc],
+                              solution=[0.7864, 0.6177],
+                              title="Rosenbrock (constrained): trust region evolution")
 
 
 if __name__ == "__main__":

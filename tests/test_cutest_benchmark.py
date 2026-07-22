@@ -23,12 +23,12 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_cutest_smoke_suite_success_rate():
-    results = run_suite(SMOKE_PROBLEMS, n_max=20, m_max=15, max_iter=300,
-                         tol=0.1, timeout=60.0, verbose=False)
+    results = run_suite(SMOKE_PROBLEMS, solvers=("dftr",), n_max=20, m_max=15,
+                         max_iter=300, tol=0.1, timeout=60.0, verbose=False)
 
     errors = [r for r in results if r.status == "error"]
     assert not errors, f"unexpected errors: {[(r.name, r.detail) for r in errors]}"
 
-    summary = summarize(results)
-    assert summary["completed"] == len(SMOKE_PROBLEMS)
-    assert summary["success_rate_of_completed"] >= 0.55
+    dftr = summarize(results)["per_solver"]["dftr"]
+    assert dftr["completed"] == len(SMOKE_PROBLEMS)
+    assert dftr["success_rate"] >= 0.55

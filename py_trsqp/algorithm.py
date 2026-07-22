@@ -65,6 +65,26 @@ class IterationRecord:
     kappa_licq: Optional[float] = None
 
 
+@dataclass
+class IterationSnapshot:
+    """The trust-region state used to decide iteration k: the sample set and
+    fitted models before that iteration's step is chosen. Only populated when
+    `DFTRFilter(..., record_history=True)`, for visualization/debugging (e.g.
+    animating how the trust region, sample set, and model evolve) rather than
+    for the algorithm itself. `center` and `Y` are in normalized coordinates
+    (see core.problem.Problem.normalize); `best_x`/`best_f` are already in
+    the user's original units, matching `DFTRFilter.best`."""
+    k: int
+    center: np.ndarray
+    radius: float
+    Y: np.ndarray
+    model_cf: QuadraticModel
+    eq_models: List[QuadraticModel]
+    ineq_models: List[QuadraticModel]
+    best_x: Optional[np.ndarray]
+    best_f: Optional[float]
+
+
 class DFTRFilter:
     """The DFTR-Filter method (Algorithm 5) for
 
@@ -73,7 +93,7 @@ class DFTRFilter:
 
     def __init__(self, x0, cf: Callable, ub, lb,
                  eqcs: Optional[List[Callable]] = None, ineqcs: Optional[List[Callable]] = None,
-                 constants: Optional[dict] = None):
+                 constants: Optional[dict] = None, record_history: bool = False):
         cap_blas_threads()
         self.problem = Problem(x0, cf, ub, lb, eqcs, ineqcs)
         c = Constants(**(constants or {}))
@@ -83,6 +103,13 @@ class DFTRFilter:
         self.filter = Filter(c.gamma_vartheta)
         self.records: List[IterationRecord] = []
         self.termination_status: Optional[str] = None
+
+        # Opt-in only: when True, a IterationSnapshot is appended to
+        # self.history for every iteration that reaches a built model (see
+        # optimize()). False by default so normal runs pay no extra memory
+        # or bookkeeping cost.
+        self.record_history = record_history
+        self.history: List[IterationSnapshot] = []
 
         self.radius = c.init_radius
         self.Y = initial_sample_set(self.problem.x0n, self.radius)
@@ -294,6 +321,14 @@ class DFTRFilter:
             eq_vals = np.array([m.c for m in eq_models])
             ineq_vals = np.array([m.c for m in ineq_models])
             vartheta_tilde = geometry.violation(eq_vals, ineq_vals)
+
+            if self.record_history:
+                self.history.append(IterationSnapshot(
+                    k=k, center=center.copy(), radius=self.radius, Y=Y.copy(),
+                    model_cf=model_cf, eq_models=list(eq_models), ineq_models=list(ineq_models),
+                    best_x=(self.best.x.copy() if self.best is not None else None),
+                    best_f=(self.best.f if self.best is not None else None),
+                ))
 
             geom = geometry.build_geometry(p.n, eq_models, ineq_models)
             consistent = geometry.is_consistent(geom)
