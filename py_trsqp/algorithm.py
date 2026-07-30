@@ -30,6 +30,11 @@ from .core.sampling import initial_sample_set
 from .exceptions import IllPoisedModel, PoisednessIsZeroException, FailedSimulation
 from ._blas import cap_blas_threads
 
+# Below this true constraint violation the current iterate is treated as
+# feasible for the purpose of the ordinary-step/restoration routing decision
+# in optimize(); see the comment at that branch for why.
+_FEASIBLE_TOL = 1e-8
+
 
 @dataclass
 class Constants:
@@ -93,7 +98,8 @@ class DFTRFilter:
 
     def __init__(self, x0, cf: Callable, ub, lb,
                  eqcs: Optional[List[Callable]] = None, ineqcs: Optional[List[Callable]] = None,
-                 constants: Optional[dict] = None, record_history: bool = False):
+                 constants: Optional[dict] = None, record_history: bool = False,
+                 seed: int = 0):
         cap_blas_threads()
         self.problem = Problem(x0, cf, ub, lb, eqcs, ineqcs)
         c = Constants(**(constants or {}))
@@ -103,6 +109,13 @@ class DFTRFilter:
         self.filter = Filter(c.gamma_vartheta)
         self.records: List[IterationRecord] = []
         self.termination_status: Optional[str] = None
+
+        # The restoration phase draws random sample-set orientations when it
+        # refits its models (core.restore._rotated_sample_set); seeding a
+        # dedicated generator makes the whole method deterministic and its
+        # results reproducible run to run. Pass a different `seed` for an
+        # independent restart.
+        self._rng = np.random.default_rng(seed)
 
         # Opt-in only: when True, a IterationSnapshot is appended to
         # self.history for every iteration that reaches a built model (see
@@ -359,11 +372,25 @@ class DFTRFilter:
                 self._record(k, center, None, None, "criticality", psi_tilde, chi_tilde, kappa_licq)
                 continue
 
-            f_center, _ = self._evaluate(center)
+            f_center, vartheta_center = self._evaluate(center)
 
-            # Step 2 + 3
+            # Step 2 + 3. Restoration exists to reduce *infeasibility*, so it
+            # is only entered when the current iterate is genuinely infeasible.
+            # When the linearized models report incompatibility at a point
+            # that is in fact feasible -- a model artifact, where the fitted
+            # constraint model predicts a mild violation the true constraints
+            # don't have -- routing into restoration is actively harmful: the
+            # distance dist0 from the origin to the linearized feasible set is
+            # roughly fixed while restoration keeps shrinking the radius, so
+            # once radius < dist0 every later iteration is incompatible too and
+            # the radius collapses to min_radius with no objective progress.
+            # Taking an ordinary objective-descent step instead keeps the
+            # filter/trust-region machinery working (the Cauchy step is always
+            # computable, and the filter guards feasibility from the true
+            # evaluation), which is what the method should do at a point that
+            # is already feasible.
             compat = geometry.compatibility(geom, self.radius)
-            if compat.is_compatible:
+            if compat.is_compatible or vartheta_center <= _FEASIBLE_TOL:
                 Y, it_type, accepted_x = self._ordinary_step(
                     Y, lset, model_cf, eq_models, ineq_models, geom, center,
                     f_center, vartheta_tilde, chi_tilde,
@@ -455,6 +482,7 @@ class DFTRFilter:
             n_ineq=self.problem.n_ineq,
             gamma0=self.c.gamma0,
             gamma1=self.c.gamma1,
+            rng=self._rng,
         )
         self._simulation_failures += result.n_simulation_failures
         if not result.success:
